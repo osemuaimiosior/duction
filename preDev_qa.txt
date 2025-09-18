@@ -1,0 +1,15 @@
+Management system of choice: Kubernetes
+
+pre development questions to answer: https://hyperledger-fabric.readthedocs.io/en/latest/deployment_guide_overview.html
+
+# Forward your local port 7054 to the CA service inside k8s
+
+//Test CA connection
+kubectl port-forward svc/org1-ca 7054:7054 -n default
+# If CA is using TLS
+curl -k https://localhost:7054/cainfo
+
+# If CA is NOT using TLS
+curl http://localhost:7054/cainfo
+
+PACKAGE_ID=asset:b4448fb69d73d9d1afdbab8b333f7b3e72bb2b73866432bd7c90eafd08751234
