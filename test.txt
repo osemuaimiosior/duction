@@ -1,0 +1,35 @@
+kubectl describe fabriccas.hlf.kungfusoftware.es org1-ca -n default
+
+export PEER_IMAGE=hyperledger/fabric-peer
+export PEER_VERSION=3.1.0
+
+export ORDERER_IMAGE=hyperledger/fabric-orderer
+export ORDERER_VERSION=3.1.0
+
+export CA_IMAGE=hyperledger/fabric-ca
+export CA_VERSION=1.5.15
+
+#Get pods
+kubectl get pods -n default
+
+#Get and describe pods
+kubectl describe pod <pod-name> -n default
+
+#Delet CA from svc and verify
+kubectl delete fabriccas.hlf.kungfusoftware.es org1-ca -n default
+kubectl get fabriccas.hlf.kungfusoftware.es -n default
+
+#Checking logs
+kubectl logs deploy/org1-peer0
+
+#Get channel
+kubectl get fabricmainchannel -A
+
+#Get certificate
+kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' > orderer0-tls.pem
+kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' > orderer1-tls.pem
+etc
+
+
+
+
