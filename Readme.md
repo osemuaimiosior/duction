@@ -1,4 +1,12 @@
-Duction is an EPR system built on Hyperledger Fabric with AI integration of efficiency
+Duction is an EPR system built on Hyperledger Fabric with AI integartion for efficieency
+
+A decentralized core enterprise ERP sysem:
+
+Case study: At tek experts anytime there is a change to the central database infrastrueture other dependencies that used the db break, due to a central change...but in a distrubuted system, each nide still runs a copy of the prior data and its fornat, until there is a push from the change node then tat data and infrastures is passed doe to other nodes for them to functiin. 
+
+no downtime, no errors, high avalibility.
+
+Chain code dev: we can righ our vhain code in c so we can make use of system resouceses to optimize oir sustem. we would also add parallisation or ditributed system  or so.
 
 🌾 ERP Blueprint for a Rice Protein & Starch Business
 1. Procurement & Raw Material Management

@@ -1,0 +1,172 @@
+apiVersion: hlf.kungfusoftware.es/v1alpha1
+kind: FabricMainChannel
+metadata:
+  name: demo
+spec:
+  name: demo
+  adminOrdererOrganizations:
+    - mspID: OrdererMSP
+  adminPeerOrganizations:
+    - mspID: Org1MSP
+  channelConfig:
+    application:
+      acls: null
+      capabilities:
+        - V2_0
+        - V2_5
+      policies: null
+    capabilities:
+      - V2_0
+    orderer:
+      batchSize:
+        absoluteMaxBytes: 1048576
+        maxMessageCount: 10
+        preferredMaxBytes: 524288
+      batchTimeout: 2s
+      capabilities:
+        - V2_0
+      etcdRaft:
+        options:
+          electionTick: 10
+          heartbeatTick: 1
+          maxInflightBlocks: 5
+          snapshotIntervalSize: 16777216
+          tickInterval: 500ms
+      ordererType: etcdraft
+      policies: null
+      state: STATE_NORMAL
+    policies: null
+  externalOrdererOrganizations: []
+  externalPeerOrganizations: []
+  peerOrganizations:
+    - mspID: Org1MSP
+      caName: "org1-ca"
+      caNamespace: "default"
+
+  identities:
+    OrdererMSP:
+      secretKey: orderermsp.yaml
+      secretName: wallet
+      secretNamespace: default
+    OrdererMSP-tls:
+      secretKey: orderermsp.yaml
+      secretName: wallet
+      secretNamespace: default
+    OrdererMSP-sign:
+      secretKey: orderermspsign.yaml
+      secretName: wallet
+      secretNamespace: default
+    Org1MSP:
+      secretKey: org1msp.yaml
+      secretName: wallet
+      secretNamespace: default
+
+  ordererOrganizations:
+    - caName: "ord-ca"
+      caNamespace: "default"
+      externalOrderersToJoin:
+        - host: ord-node1.default
+          port: 7053
+        - host: ord-node2.default
+          port: 7053
+        - host: ord-node3.default
+          port: 7053
+        - host: ord-node4.default
+          port: 7053
+      mspID: OrdererMSP
+      ordererEndpoints:
+        - orderer0-ord.localho.st:443
+        - orderer1-ord.localho.st:443
+        - orderer2-ord.localho.st:443
+        - orderer3-ord.localho.st:443
+      orderersToJoin: []
+
+  orderers:
+    - host: orderer0-ord.localho.st
+      port: 443
+      tlsCert: |-
+                -----BEGIN CERTIFICATE-----
+        MIIDEjCCArmgAwIBAgIULHLe2bUxiIcQg0gxHTwURksvjl4wCgYIKoZIzj0EAwIw
+        bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
+        YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
+        MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE2MTA0NTA3WhcNMjYwOTE3MTA0NzAwWjAk
+        MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
+        AQYIKoZIzj0DAQcDQgAEKJvxxkGgXuZZRW3RSjFTmhb/zR+TF6LG8CvZ/cvGTe6m
+        o2BW/RI2+YKNi5C0ZB45eCyRo4Ro+fPEZLP4h4QRKqOCAX4wggF6MA4GA1UdDwEB
+        /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTWrtovh+Yl77TGis3FasDt
+        3M8ixjArBgNVHSMEJDAigCBfRpkxFhgN5W6hc3iXxhwosPP/Ex0EoMcHmV4mzub7
+        bTCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlMYIRb3JkLW5vZGUx
+        LmRlZmF1bHSCF29yZGVyZXIwLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
+        MC1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjAtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
+        LW9yZGVyZXIwLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
+        BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
+        Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0cA
+        MEQCICIxdBCd+3QBAAnntGfWnZSYe5Qu+GRs/vtIcf8XQ4W9AiBRW0Eu2UltV7H1
+        KRpIG6PTLNqlOcK+q1MmlVNecimS8g==
+        -----END CERTIFICATE-----
+    - host: orderer1-ord.localho.st
+      port: 443
+      tlsCert: |-
+                -----BEGIN CERTIFICATE-----
+        MIIDEzCCArmgAwIBAgIUaWKzDqRimcxqDnv54iiDi1zbsmYwCgYIKoZIzj0EAwIw
+        bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
+        YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
+        MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE2MTA0NTA3WhcNMjYwOTE3MTA0NzAwWjAk
+        MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
+        AQYIKoZIzj0DAQcDQgAEzhBc6M1q315Or+nXHsTIUNW+Ulx4iBA8tUD4ZPspjwdm
+        ikXUGMGKvyZakItJbvm4JtNK7PCoLvrwcjcrC5DPv6OCAX4wggF6MA4GA1UdDwEB
+        /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTve5vyXVN8zRDdnL9ycJhm
+        DbjOxzArBgNVHSMEJDAigCBfRpkxFhgN5W6hc3iXxhwosPP/Ex0EoMcHmV4mzub7
+        bTCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlMoIRb3JkLW5vZGUy
+        LmRlZmF1bHSCF29yZGVyZXIxLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
+        MS1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjEtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
+        LW9yZGVyZXIxLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
+        BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
+        Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0gA
+        MEUCIQCngm5UceQsNWUspRgghYnMD5nSJFdurEBo/5E0dzzBSwIgCODHCP/Kqiz0
+        Wtgn2qh5ydf2IjtqX2L+7zvGzV2pZt0=
+        -----END CERTIFICATE-----
+    - host: orderer2-ord.localho.st
+      port: 443
+      tlsCert: |-
+                -----BEGIN CERTIFICATE-----
+        MIIDEjCCArmgAwIBAgIUdaomLz2pvsb5ghQBe6cJFknE4kkwCgYIKoZIzj0EAwIw
+        bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
+        YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
+        MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE2MTA0NTA3WhcNMjYwOTE3MTA0NzAwWjAk
+        MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
+        AQYIKoZIzj0DAQcDQgAE+qdqLSyF1obRwVPGemOA69viP9NEL07Q3yflsusuj4FU
+        R2HOUhpjxj79XGWEBBrt7JlVqRuhR+rJTwJW3VlId6OCAX4wggF6MA4GA1UdDwEB
+        /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRFD4KTGzaIN7Jlc/RkTsUR
+        FDNv4TArBgNVHSMEJDAigCBfRpkxFhgN5W6hc3iXxhwosPP/Ex0EoMcHmV4mzub7
+        bTCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlM4IRb3JkLW5vZGUz
+        LmRlZmF1bHSCF29yZGVyZXIyLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
+        Mi1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjItb3JkLmxvY2FsaG8uc3SCHWFkbWlu
+        LW9yZGVyZXIyLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
+        BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
+        Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0cA
+        MEQCIGiZcvg7twjIJ+sqb9f4oKJTT06pj6um/qHAEsYyfxrpAiAJPfeEZIVh+xmW
+        nhWSAASvn7Qh4thn7+a6QbzIh+g8gw==
+        -----END CERTIFICATE-----
+    - host: orderer3-ord.localho.st
+      port: 443
+      tlsCert: |-
+                -----BEGIN CERTIFICATE-----
+        MIIDEzCCArmgAwIBAgIUG9i3CwAj2rzkwOA9z3ZxOaRnSS0wCgYIKoZIzj0EAwIw
+        bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
+        YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
+        MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE2MTA0NTA3WhcNMjYwOTE3MTA0NzAwWjAk
+        MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
+        AQYIKoZIzj0DAQcDQgAE7kAdkbzL6CCYn7BNu5z8pZVqqFFxtVlOEcANtVYz0nAV
+        896gj0gCGuhag8EaUEWfZiSzOrhaPxN9vqmkVeqSmaOCAX4wggF6MA4GA1UdDwEB
+        /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRPczRpUkbJbg/r+x6RFlrS
+        0ljqOTArBgNVHSMEJDAigCBfRpkxFhgN5W6hc3iXxhwosPP/Ex0EoMcHmV4mzub7
+        bTCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlNIIRb3JkLW5vZGU0
+        LmRlZmF1bHSCF29yZGVyZXIzLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
+        My1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjMtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
+        LW9yZGVyZXIzLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
+        BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
+        Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0gA
+        MEUCIQCpeGMUUdkvat5aTb0ND2Vr3LxStpQGJNfpa3BGQpHTKAIgNLBt7mtNJF53
+        yLAmaazyyp59OOQKzLgSWPJmMcpXUgA=
+        -----END CERTIFICATE-----
