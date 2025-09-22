@@ -1,0 +1,42 @@
+
+apiVersion: hlf.kungfusoftware.es/v1alpha1
+kind: FabricFollowerChannel
+metadata:
+  name: demo-org1msp
+spec:
+  anchorPeers:
+    - host: peer0-org1.localho.st
+      port: 443
+  hlfIdentity:
+    secretKey: org1msp.yaml
+    secretName: wallet
+    secretNamespace: default
+  mspId: Org1MSP
+  name: demo
+  externalPeersToJoin: []
+  orderers:
+    - certificate: |
+                -----BEGIN CERTIFICATE-----
+                MIIDEzCCArmgAwIBAgIUJz/DsCyWgH8/RLa/PW8dm++FhsswCgYIKoZIzj0EAwIw
+                bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
+                YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
+                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE3MTQxNTE5WhcNMjYwOTE4MTQxODAwWjAk
+                MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
+                AQYIKoZIzj0DAQcDQgAEh2DrQ9T9ZA+m9ymEPC8ntzmTy1Hcbu6x9QhAMovPx/Dg
+                UR4QhIg4gYJfbxnydJgiKVtU9BDcfLwlu0UEiafBx6OCAX4wggF6MA4GA1UdDwEB
+                /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTCf8OpxR1I/BbmbaN1dtpd
+                NwNxFzArBgNVHSMEJDAigCDUPsAledQz4Pxy/TY+EVi7RlPlbWJGyUSBwddnlkgE
+                6zCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlMYIRb3JkLW5vZGUx
+                LmRlZmF1bHSCF29yZGVyZXIwLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
+                MC1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjAtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
+                LW9yZGVyZXIwLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
+                BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
+                Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0gA
+                MEUCIQCF8Y+WgfekHZCErqtZdi8AH/8+FEBl7UDf/htzJQhgKwIgMAX1qi4qAtMc
+                9tNec6zjFsc2Y3bgc2WXUQhGFhCRC4M=
+                -----END CERTIFICATE-----
+      #url: grpcs://ord-node1.default:443
+      url: grpcs://orderer0-ord.localho.st:443
+  peersToJoin:
+    - name: org1-peer0
+      namespace: default

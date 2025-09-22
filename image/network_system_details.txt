@@ -1,0 +1,27 @@
+A1 - Operations department client application
+A2 - Human resource client application
+A3 - Commercial Sale client application
+A4 - Marketing department client application
+
+R1 - Operations department
+R2 - Human resource department
+R3 - Commercial Sale department
+R4 - Marketing department
+R0 - Complaince department
+
+0 - Network orderer
+P1 - Operations department anchpr peer
+P2 - Human resource department anchpr peer
+P3 - Commercial Sale department anchpr peer
+P4 - Marketing department anchpr peer
+
+S5 - Network chaincode (Smart contract)
+L1 - Network ledger
+C1 - Network channel
+CC1 - Network configuration / participants
+
+CA0 - Complaince department certificate authority
+CA1 - Operations department certificate authority
+CA2 - Human resource department certificate authority
+CA3 - Commercial Sale department certificate authority
+CA4 - Marketing department certificate authority
