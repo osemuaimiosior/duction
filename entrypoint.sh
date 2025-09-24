@@ -211,8 +211,145 @@ kubectl wait --timeout=180s --for=condition=Running fabricorderernodes.hlf.kungf
         --from-file=orderermsp.yaml=$PWD/orderermsp.yaml \
         --from-file=orderermspsign.yaml=$PWD/orderermspsign.yaml
 
+# 16. Create main channel
+export PEER_ORG_SIGN_CERT=$(kubectl get fabriccas org1-ca -o=jsonpath='{.status.ca_cert}')
+export PEER_ORG_TLS_CERT=$(kubectl get fabriccas org1-ca -o=jsonpath='{.status.tlsca_cert}')
 
+export IDENT_8=$(printf "%8s" "")
+export ORDERER_TLS_CERT=$(kubectl get fabriccas ord-ca -o=jsonpath='{.status.tlsca_cert}' | sed -e "s/^/${IDENT_8}/" )
+export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+export ORDERER1_TLS_CERT=$(kubectl get fabricorderernodes ord-node2 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+export ORDERER2_TLS_CERT=$(kubectl get fabricorderernodes ord-node3 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+export ORDERER3_TLS_CERT=$(kubectl get fabricorderernodes ord-node4 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
 
+kubectl apply -f ./src/mainChannel.yaml
+
+# 17. Join peer to the channel
+export IDENT_8=$(printf "%8s" "")
+export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+
+kubectl apply -f ./src/joinPeer.yaml
+
+# 18. Install a chaincode
+
+    # Get connection string without users for organization Org1MSP and OrdererMSP
+    kubectl hlf inspect \
+        --output org1.yaml \
+        -o Org1MSP \
+        -o OrdererMSP
+
+    # Register a user in the certification authority for signing
+    kubectl hlf ca register \
+        --name=org1-ca \
+        --user=admin \
+        --secret=adminpw \
+        --type=admin \
+        --enroll-id enroll \
+        --enroll-secret=enrollpw \
+        --mspid Org1MSP  
+    
+    # Get the certificates using the user created above
+    kubectl hlf ca enroll \
+        --name=org1-ca \
+        --user=admin \
+        --secret=adminpw \
+        --mspid Org1MSP \
+        --ca-name ca  \
+        --output peer-org1.yaml
+
+    # Attach the user to the connection string
+    kubectl hlf utils adduser \
+        --userPath=peer-org1.yaml \
+        --config=org1.yaml \
+        --username=admin \
+        --mspid=Org1MSP
+
+    # Create metadata file - chaincode as a service
+
+        # remove the code.tar.gz chaincode.tgz if they exist
+        rm code.tar.gz chaincode.tgz
+        export CHAINCODE_NAME=asset
+        export CHAINCODE_LABEL=asset
+    
+        # Prepare connection file
+        tar cfz code.tar.gz connection.json
+        tar cfz chaincode.tgz metadata.json code.tar.gz
+
+        export PACKAGE_ID=$(kubectl hlf chaincode calculatepackageid --path=chaincode.tgz --language=node --label=$CHAINCODE_LABEL)
+
+        echo "PACKAGE_ID=$PACKAGE_ID"
+
+        kubectl hlf chaincode install \
+            --path=./chaincode.tgz \
+            --config=org1.yaml \
+            --language=golang \
+            --label=$CHAINCODE_LABEL \
+            --user=admin \
+            --peer=org1-peer0.default
+
+    # Deploy chaincode container on cluster
+    kubectl hlf externalchaincode sync \
+        --image=kfsoftware/chaincode-external:latest \
+        --name=$CHAINCODE_NAME \
+        --namespace=default \
+        --package-id=$PACKAGE_ID \
+        --tls-required=false \
+        --replicas=1
+
+    # Check installed chaincodes
+    kubectl hlf chaincode queryinstalled \
+        --config=org1.yaml \
+        --user=admin \
+        --peer=org1-peer0.default
+
+# 19. Approve chaincode
+export SEQUENCE=1
+export VERSION="1.0"
+
+kubectl hlf chaincode approveformyorg \
+    --config=org1.yaml \
+    --user=admin \
+    --peer=org1-peer0.default \
+    --package-id=$PACKAGE_ID \
+    --version "$VERSION" \
+    --sequence "$SEQUENCE" \
+    --name=asset \
+    --policy="OR('Org1MSP.member')" \
+    --channel=demo
+
+    # Commit chaincode
+    kubectl hlf chaincode commit \
+        --config=org1.yaml \
+        --user=admin \
+        --mspid=Org1MSP \
+        --version "$VERSION" \
+        --sequence "$SEQUENCE" \
+        --name=asset \
+        --policy="OR('Org1MSP.member')" \
+        --channel=demo
+
+    # Invoke a transaction on the channel
+    kubectl hlf chaincode invoke \
+        --config=org1.yaml \
+        --user=admin --peer=org1-peer0.default \
+        --chaincode=asset \
+        --channel=demo \
+        --fcn=initLedger -a '[]'
+
+    # Query assets in the channel
+    kubectl hlf chaincode query \
+        --config=org1.yaml \
+        --user=admin --peer=org1-peer0.default \
+        --chaincode=asset --channel=demo \
+        --fcn=GetAllAssets -a '[]'
+
+# 20. Cleanup the environment
+#kubectl delete fabricorderernodes.hlf.kungfusoftware.es --all-namespaces --all
+#kubectl delete fabricpeers.hlf.kungfusoftware.es --all-namespaces --all
+#kubectl delete fabriccas.hlf.kungfusoftware.es --all-namespaces --all
+#kubectl delete fabricchaincode.hlf.kungfusoftware.es --all-namespaces --all
+#kubectl delete fabricmainchannels --all-namespaces --all
+#kubectl delete fabricfollowerchannels --all-namespaces --all
 
 # . Keep container running
 tail -f /dev/null
