@@ -1,27 +1,45 @@
-A1 - Operations department client application
-A2 - Human resource client application
-A3 - Commercial Sale client application
-A4 - Marketing department client application
+# Client application
+A1 - mainBranch client
+A2 - ngBranch client
+A3 - usBranch client
+A4 - euBranch client
 
-R1 - Operations department
-R2 - Human resource department
-R3 - Commercial Sale department
-R4 - Marketing department
-R0 - Complaince department
+# Organisation details
+R0 - centralBank
+R1 - mainBranch
+R2 - ngBranch
+R3 - usBranch
+R4 - euBranch
 
-0 - Network orderer
-P1 - Operations department anchpr peer
-P2 - Human resource department anchpr peer
-P3 - Commercial Sale department anchpr peer
-P4 - Marketing department anchpr peer
+# System Operational Nodes
+0 - centralBank orderer
 
+# System Operational Peers
+P1 - mainBranch anchor peer
+P2 - ngBranch anchor peer
+P3 - usBranch anchor peer
+P4 - euBranch anchor peer
+
+# Chaincode/smart contract & Ledger details
 S5 - Network chaincode (Smart contract)
 L1 - Network ledger
 C1 - Network channel
 CC1 - Network configuration / participants
 
-CA0 - Complaince department certificate authority
-CA1 - Operations department certificate authority
-CA2 - Human resource department certificate authority
-CA3 - Commercial Sale department certificate authority
-CA4 - Marketing department certificate authority
+# Certificate authority details
+CA0 - centralBank
+CA1 - mainBranch
+CA2 - ngBranch
+CA3 - usBranch
+CA4 - euBranch
+
+kubectl hlf ca register --name=compliance-ca --namespace=default --user=admin --secret=adminpw \
+    --type=admin --enroll-id compliance --enroll-secret=compliancepw --mspid=complianceMSP
+
+kubectl hlf ca enroll --name=compliance-ca --namespace=default \
+    --user=admin --secret=adminpw --mspid complianceMSP \
+    --ca-name ca  --output compliancemsp.yaml
+
+kubectl hlf identity create --name compliance-admin --namespace default \
+    --ca-name compliance-ca --ca-namespace default \
+    --ca ca --mspid complianceMSP --enroll-id admin --enroll-secret adminpw

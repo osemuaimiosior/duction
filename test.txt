@@ -12,6 +12,13 @@ export CA_VERSION=1.5.15
 #Get pods
 kubectl get pods -n default
 
+#Get secret in kubernetese
+kubectl get secret wallet -n default
+
+
+#Get all peers
+kubectl get fabricpeershlf.kungfusoftware.es -n default
+
 #Get and describe pods
 kubectl describe pod <pod-name> -n default
 
@@ -21,6 +28,9 @@ kubectl get fabriccas.hlf.kungfusoftware.es -n default
 
 #Checking logs
 kubectl logs deploy/org1-peer0
+
+#Ordering node
+kubectl get fabricorderernodes.hlf.kungfusoftware.es -n default
 
 #Get channel
 kubectl get fabricmainchannel -A

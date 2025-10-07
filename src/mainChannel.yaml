@@ -5,9 +5,9 @@ metadata:
 spec:
   name: demo
   adminOrdererOrganizations:
-    - mspID: OrdererMSP
+    - mspID: central-bankMSP
   adminPeerOrganizations:
-    - mspID: Org1MSP
+    - mspID: main-branchMSP
   channelConfig:
     application:
       acls: null
@@ -39,133 +39,141 @@ spec:
   externalOrdererOrganizations: []
   externalPeerOrganizations: []
   peerOrganizations:
-    - mspID: Org1MSP
-      caName: "org1-ca"
+    - mspID: main-branchMSP
+      caName: "main-branch-ca"
       caNamespace: "default"
-
+    - mspID: ng-branchMSP
+      caName: "ng-branch-ca"
+      caNamespace: "default"
+    - mspID: us-branchMSP
+      caName: "us-branch-ca"
+      caNamespace: "default"
+    - mspID: eu-branchMSP
+      caName: "eu-branch-ca"
+      caNamespace: "default"
+      
   identities:
-    OrdererMSP:
-      secretKey: orderermsp.yaml
+    central-bankMSP:
+      secretKey: central-bankmsp.yaml
       secretName: wallet
       secretNamespace: default
-    OrdererMSP-tls:
-      secretKey: orderermsp.yaml
+    central-bankMSP-tls:
+      secretKey: central-bankmsp.yaml
       secretName: wallet
       secretNamespace: default
-    OrdererMSP-sign:
-      secretKey: orderermspsign.yaml
+    central-bankMSP-sign:
+      secretKey: central-bankmspsign.yaml
       secretName: wallet
       secretNamespace: default
-    Org1MSP:
-      secretKey: org1msp.yaml
+    main-branchMSP:
+      secretKey: main-branchmsp.yaml
       secretName: wallet
       secretNamespace: default
 
   ordererOrganizations:
-    - caName: "ord-ca"
+    - caName: "central-bank-ca"
       caNamespace: "default"
       externalOrderersToJoin:
-        - host: ord-node1.default
+        - host: central-bank-node0.default
           port: 7053
-        - host: ord-node2.default
+        - host: central-bank-node1.default
           port: 7053
-        - host: ord-node3.default
+        - host: central-bank-node2.default
           port: 7053
-        - host: ord-node4.default
+        - host: central-bank-node3.default
           port: 7053
       mspID: OrdererMSP
       ordererEndpoints:
-        - orderer0-ord.localho.st:443
-        - orderer1-ord.localho.st:443
-        - orderer2-ord.localho.st:443
-        - orderer3-ord.localho.st:443
+        - orderer0-central-bank.localho.st:443
+        - orderer1-central-bank.localho.st:443
+        - orderer2-central-bank.localho.st:443
+        - orderer3-central-bank.localho.st:443
       orderersToJoin: []
   orderers:
-    - host: orderer0-ord.localho.st
+    - host: orderer0-central-bank.localho.st
       port: 443
       tlsCert: |-
-                -----BEGIN CERTIFICATE-----
-                MIIDEzCCArmgAwIBAgIUJz/DsCyWgH8/RLa/PW8dm++FhsswCgYIKoZIzj0EAwIw
-                bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
-                YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
-                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE3MTQxNTE5WhcNMjYwOTE4MTQxODAwWjAk
-                MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
-                AQYIKoZIzj0DAQcDQgAEh2DrQ9T9ZA+m9ymEPC8ntzmTy1Hcbu6x9QhAMovPx/Dg
-                UR4QhIg4gYJfbxnydJgiKVtU9BDcfLwlu0UEiafBx6OCAX4wggF6MA4GA1UdDwEB
-                /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTCf8OpxR1I/BbmbaN1dtpd
-                NwNxFzArBgNVHSMEJDAigCDUPsAledQz4Pxy/TY+EVi7RlPlbWJGyUSBwddnlkgE
-                6zCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlMYIRb3JkLW5vZGUx
-                LmRlZmF1bHSCF29yZGVyZXIwLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
-                MC1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjAtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
-                LW9yZGVyZXIwLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
-                BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
-                Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0gA
-                MEUCIQCF8Y+WgfekHZCErqtZdi8AH/8+FEBl7UDf/htzJQhgKwIgMAX1qi4qAtMc
-                9tNec6zjFsc2Y3bgc2WXUQhGFhCRC4M=
+                ------BEGIN CERTIFICATE-----
+                MIIC7jCCApWgAwIBAgITEGLYQ4e7qEou8DqSlkuBp1dXEDAKBggqhkjOPQQDAjBt
+                MQswCQYDVQQGEwJFUzERMA8GA1UEBxMIQWxpY2FudGUxETAPBgNVBAkTCEFsaWNh
+                bnRlMRkwFwYDVQQKExBLdW5nIEZ1IFNvZnR3YXJlMQ0wCwYDVQQLEwRUZWNoMQ4w
+                DAYDVQQDEwV0bHNjYTAeFw0yNTA5MjkxMTQ4MjZaFw0yNjA5MzAxMjQ2MDBaMCgx
+                DzANBgNVBAsTBmNsaWVudDEVMBMGA1UEAxMMY2VudHJhbC1iYW5rMFkwEwYHKoZI
+                zj0CAQYIKoZIzj0DAQcDQgAEfi6HSm73gan+CGeP7KYls02IVqe3PgngCBJqpxjv
+                EoJfTzMi3vrPgonF7xtLApPjjZtOPOKiLZoBp9KeehgCjaOCAVcwggFTMA4GA1Ud
+                DwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTa8tsK1bAXBni5TBCW
+                Y1+Br8By+TArBgNVHSMEJDAigCClda1UHAqBZg1LmiPIxbsreYcKMJk9hp722J/f
+                tUh7XjCB5gYDVR0RBIHeMIHbgglsb2NhbGhvc3SCEmNlbnRyYWwtYmFuay1ub2Rl
+                MIIaY2VudHJhbC1iYW5rLW5vZGUwLmRlZmF1bHSCIG9yZGVyZXIwLWNlbnRyYWwt
+                YmFuay5sb2NhbGhvLnN0giZhZG1pbi1vcmRlcmVyMC1jZW50cmFsLWJhbmsubG9j
+                YWxoby5zdIIgb3JkZXJlcjAtY2VudHJhbC1iYW5rLmxvY2FsaG8uc3SCJmFkbWlu
+                LW9yZGVyZXIwLWNlbnRyYWwtYmFuay5sb2NhbGhvLnN0hwR/AAABhwSsEgACMAoG
+                CCqGSM49BAMCA0cAMEQCIFCX8RxD1YvYwWbXJjyIeJC6NwtR9Uylfmy0GXSDpBLt
+                AiAW9wnnAWpCrN24+ftvT/0q5Yp9tBo/2gTSGEQkBh5N9A==
                 -----END CERTIFICATE-----
-    - host: orderer1-ord.localho.st
+
+    - host: orderer1-central-bank.localho.st
       port: 443
       tlsCert: |-
                 -----BEGIN CERTIFICATE-----
-                MIIDEjCCArmgAwIBAgIUHqufEUmr1+NV4zIsG0RjwracTsMwCgYIKoZIzj0EAwIw
+                MIIC8DCCApagAwIBAgIUHn5opIU5sdz6xbzY9Ey0oTtnPYEwCgYIKoZIzj0EAwIw
                 bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
                 YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
-                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE3MTQxNTE5WhcNMjYwOTE4MTQxODAwWjAk
-                MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
-                AQYIKoZIzj0DAQcDQgAEiRYGAmZ3mLcH9nHAFHsrdz/2uUv6W6V0I5/jdm+J5PLW
-                k84hnNrQrcYZWdNQi16WElQLPISjGBQtL2RtUeVFiKOCAX4wggF6MA4GA1UdDwEB
-                /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBQh8fsH/fPJcLwBAucplCK0
-                GfN3jzArBgNVHSMEJDAigCDUPsAledQz4Pxy/TY+EVi7RlPlbWJGyUSBwddnlkgE
-                6zCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlMoIRb3JkLW5vZGUy
-                LmRlZmF1bHSCF29yZGVyZXIxLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
-                MS1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjEtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
-                LW9yZGVyZXIxLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
-                BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
-                Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0cA
-                MEQCIFm2QKqFb74AqL56kCTUzuO/VpjWItRlkjuxWJr5TfD6AiA9W+TVNl4pXaZX
-                wMbR5WhTClGW7KIRnjktl0JRzq8nAw==
+                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTI5MTE0ODI2WhcNMjYwOTMwMTMyMDAwWjAo
+                MQ8wDQYDVQQLEwZjbGllbnQxFTATBgNVBAMTDGNlbnRyYWwtYmFuazBZMBMGByqG
+                SM49AgEGCCqGSM49AwEHA0IABM2noh81cFHzTFVUgzcBGCo2Tk+kgbdMhMnEBT3r
+                mD/3MJdUS8Z1KD+8DcKihVkA+40g5ZQeKVBC2dsXnnQPSeWjggFXMIIBUzAOBgNV
+                HQ8BAf8EBAMCB4AwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUc9ReYB3wwrs49dUt
+                fgv3DQQGrHkwKwYDVR0jBCQwIoAgpXWtVBwKgWYNS5ojyMW7K3mHCjCZPYae9tif
+                37VIe14wgeYGA1UdEQSB3jCB24IJbG9jYWxob3N0ghJjZW50cmFsLWJhbmstbm9k
+                ZTGCGmNlbnRyYWwtYmFuay1ub2RlMS5kZWZhdWx0giBvcmRlcmVyMS1jZW50cmFs
+                LWJhbmsubG9jYWxoby5zdIImYWRtaW4tb3JkZXJlcjEtY2VudHJhbC1iYW5rLmxv
+                Y2FsaG8uc3SCIG9yZGVyZXIxLWNlbnRyYWwtYmFuay5sb2NhbGhvLnN0giZhZG1p
+                bi1vcmRlcmVyMS1jZW50cmFsLWJhbmsubG9jYWxoby5zdIcEfwAAAYcErBIAAjAK
+                BggqhkjOPQQDAgNIADBFAiEA7mgX7ukPd1KRqAMmo2MRZTOq60V+xSTj30g4M7mN
+                FeQCIEJsrHtjdJan4Rc3jN3gFR6obsTkn4VHxQNWMVQlr3oV
                 -----END CERTIFICATE-----
-    - host: orderer2-ord.localho.st
+
+    - host: orderer2-central-bank.localho.st
       port: 443
       tlsCert: |-
                 -----BEGIN CERTIFICATE-----
-                MIIDEjCCArmgAwIBAgIUdeKXqYEk2BMapGNuur674zrAwKcwCgYIKoZIzj0EAwIw
+                MIIC8DCCApagAwIBAgIUNATlQis9JChdfyqPpi4msTaNeh4wCgYIKoZIzj0EAwIw
                 bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
                 YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
-                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE3MTQxNTE5WhcNMjYwOTE4MTQxODAwWjAk
-                MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
-                AQYIKoZIzj0DAQcDQgAEa+dUwYDLfIcUL2wvFMGhaSkTLEUb3URRL6PUf0i3nphE
-                mMvImZoAaRg9/HkQ19Yl0FQ2xGmzR85oVBs0NJ2Fk6OCAX4wggF6MA4GA1UdDwEB
-                /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBRrNihgeeaX9cMHZKt48MUM
-                MXtA5TArBgNVHSMEJDAigCDUPsAledQz4Pxy/TY+EVi7RlPlbWJGyUSBwddnlkgE
-                6zCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlM4IRb3JkLW5vZGUz
-                LmRlZmF1bHSCF29yZGVyZXIyLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
-                Mi1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjItb3JkLmxvY2FsaG8uc3SCHWFkbWlu
-                LW9yZGVyZXIyLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
-                BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
-                Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0cA
-                MEQCIGJBklGiLbAmhvGWHDNXnhy8qVNxHm3rHWwaoiRHVXocAiBlfaw8uqKpW8zM
-                TDp7Ds+urB2UdETXrQGjZn983b43cQ==
+                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTI5MTE0ODI2WhcNMjYwOTMwMTMyMTAwWjAo
+                MQ8wDQYDVQQLEwZjbGllbnQxFTATBgNVBAMTDGNlbnRyYWwtYmFuazBZMBMGByqG
+                SM49AgEGCCqGSM49AwEHA0IABIQA/Z5lVwFwoZPlCQXegtsLs8kJ5e9nGScxEAEW
+                A9DvQrdKt0QIwss7mHe9GIk6Hky+mhfOr7m6OkzOD3avSDCjggFXMIIBUzAOBgNV
+                HQ8BAf8EBAMCB4AwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUFoNlxNACgbRK0dgX
+                D0ab+PfQnTQwKwYDVR0jBCQwIoAgpXWtVBwKgWYNS5ojyMW7K3mHCjCZPYae9tif
+                37VIe14wgeYGA1UdEQSB3jCB24IJbG9jYWxob3N0ghJjZW50cmFsLWJhbmstbm9k
+                ZTKCGmNlbnRyYWwtYmFuay1ub2RlMi5kZWZhdWx0giBvcmRlcmVyMi1jZW50cmFs
+                LWJhbmsubG9jYWxoby5zdIImYWRtaW4tb3JkZXJlcjItY2VudHJhbC1iYW5rLmxv
+                Y2FsaG8uc3SCIG9yZGVyZXIyLWNlbnRyYWwtYmFuay5sb2NhbGhvLnN0giZhZG1p
+                bi1vcmRlcmVyMi1jZW50cmFsLWJhbmsubG9jYWxoby5zdIcEfwAAAYcErBIAAjAK
+                BggqhkjOPQQDAgNIADBFAiEA92x58b9YnONdxBXEnG9YkLvE6uu16in+zZHEYQuw
+                caQCIC9PU1EWJjmBu2zwpKimV9rJH9zjDWE6BqHYmuc11KeG
                 -----END CERTIFICATE-----
-    - host: orderer3-ord.localho.st
+
+    - host: orderer3-central-bank.localho.st
       port: 443
       tlsCert: |-
                 -----BEGIN CERTIFICATE-----
-                MIIDEzCCArmgAwIBAgIUU3jd72RByAfEK4exgUmIzKHNMB0wCgYIKoZIzj0EAwIw
+                MIIC7zCCApagAwIBAgIUCMAxkWx4vIxwKB2F6m1ZncCN0+IwCgYIKoZIzj0EAwIw
                 bTELMAkGA1UEBhMCRVMxETAPBgNVBAcTCEFsaWNhbnRlMREwDwYDVQQJEwhBbGlj
                 YW50ZTEZMBcGA1UEChMQS3VuZyBGdSBTb2Z0d2FyZTENMAsGA1UECxMEVGVjaDEO
-                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTE3MTQxNTE5WhcNMjYwOTE4MTQxODAwWjAk
-                MRAwDgYDVQQLEwdvcmRlcmVyMRAwDgYDVQQDEwdvcmRlcmVyMFkwEwYHKoZIzj0C
-                AQYIKoZIzj0DAQcDQgAEGpER2a85HuxJzSzw4nUOKV6VFm1PzXsGNCO02gvWtt1m
-                XCY8vwPwx4aDKmszh0yACgrIEJnuCKIK5u66L95hU6OCAX4wggF6MA4GA1UdDwEB
-                /wQEAwIHgDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBT47ffHr/3TylMgwdLKRmqU
-                vTE8kjArBgNVHSMEJDAigCDUPsAledQz4Pxy/TY+EVi7RlPlbWJGyUSBwddnlkgE
-                6zCBsAYDVR0RBIGoMIGlgglsb2NhbGhvc3SCCW9yZC1ub2RlNIIRb3JkLW5vZGU0
-                LmRlZmF1bHSCF29yZGVyZXIzLW9yZC5sb2NhbGhvLnN0gh1hZG1pbi1vcmRlcmVy
-                My1vcmQubG9jYWxoby5zdIIXb3JkZXJlcjMtb3JkLmxvY2FsaG8uc3SCHWFkbWlu
-                LW9yZGVyZXIzLW9yZC5sb2NhbGhvLnN0hwR/AAABhwSsEgACMFsGCCoDBAUGBwgB
-                BE97ImF0dHJzIjp7ImhmLkFmZmlsaWF0aW9uIjoiIiwiaGYuRW5yb2xsbWVudElE
-                Ijoib3JkZXJlciIsImhmLlR5cGUiOiJvcmRlcmVyIn19MAoGCCqGSM49BAMCA0gA
-                MEUCIQCpNYda2EQ7x4jj1b/ngtd/9KuZTN5QxjlMtitiZ/OYTQIgOATN4djJpPft
-                xu7EXZ5uPDuF/JFlS0qZtdq5vHjU1TI=
+                MAwGA1UEAxMFdGxzY2EwHhcNMjUwOTI5MTE0ODI2WhcNMjYwOTMwMTMyMjAwWjAo
+                MQ8wDQYDVQQLEwZjbGllbnQxFTATBgNVBAMTDGNlbnRyYWwtYmFuazBZMBMGByqG
+                SM49AgEGCCqGSM49AwEHA0IABMSjdmKjQ9zq8AAj/4DkxqoddEASQ70ZK2e0sMUh
+                a0z2I4z+SETG+WCs+XxvNLHMkzCuLOL2axHmuZ8+ejEmDzyjggFXMIIBUzAOBgNV
+                HQ8BAf8EBAMCB4AwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUi/3rRX52Gk5IBRLD
+                T2Z1dtn1gCUwKwYDVR0jBCQwIoAgpXWtVBwKgWYNS5ojyMW7K3mHCjCZPYae9tif
+                37VIe14wgeYGA1UdEQSB3jCB24IJbG9jYWxob3N0ghJjZW50cmFsLWJhbmstbm9k
+                ZTOCGmNlbnRyYWwtYmFuay1ub2RlMy5kZWZhdWx0giBvcmRlcmVyMy1jZW50cmFs
+                LWJhbmsubG9jYWxoby5zdIImYWRtaW4tb3JkZXJlcjMtY2VudHJhbC1iYW5rLmxv
+                Y2FsaG8uc3SCIG9yZGVyZXIzLWNlbnRyYWwtYmFuay5sb2NhbGhvLnN0giZhZG1p
+                bi1vcmRlcmVyMy1jZW50cmFsLWJhbmsubG9jYWxoby5zdIcEfwAAAYcErBIAAjAK
+                BggqhkjOPQQDAgNHADBEAiAqiPyL2q0uqS/dduX+uBIs+ggaZNJjjULgVKDgU8Uf
+                MQIgdGrcQe8JvfeZrhiSk2ermAo2doJXZFEBp3dfXCuYxr4=
                 -----END CERTIFICATE-----

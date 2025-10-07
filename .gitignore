@@ -1,3 +1,6 @@
 ./env
 ./node_module
 ./src
+./fabric-samples
+./fabric
+./vscode
