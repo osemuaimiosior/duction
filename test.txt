@@ -1,3 +1,26 @@
+#Edit wallet seceret
+kubectl edit secret wallet -n default
+
+How to save and exit (if using vi or vim)
+
+Press i → to enter insert mode (you can now type or paste)
+
+After editing, press Esc
+
+Type :wq (write & quit)
+
+Press Enter
+
+# Get base64 cert pem code
+cat orderer0.pem | base64 -w0
+
+#fabric peer and orderer docker image build
+
+docker build -t <image name> -f images/peer/Dockerfile .
+docker tag <image name>:<tag> <docker account name>/<image name>:<tag>
+docker push <docker account name>/<image name>:<tag>
+
+
 kubectl describe fabriccas.hlf.kungfusoftware.es org1-ca -n default
 
 export PEER_IMAGE=hyperledger/fabric-peer
@@ -15,9 +38,19 @@ kubectl get pods -n default
 #Get secret in kubernetese
 kubectl get secret wallet -n default
 
+#Get FabricFollowerChannel
+kubectl get FabricFollowerChannel
+kubectl describe FabricFollowerChannel demo-main-branchmsp
+
+#Check nodes
+kubectl get fabricorderernodes.hlf.kungfusoftware.es -A
+
+#Get service
+kubectl get svc -n default
+
 
 #Get all peers
-kubectl get fabricpeershlf.kungfusoftware.es -n default
+kubectl get fabricpeers.hlf.kungfusoftware.es -n default
 
 #Get and describe pods
 kubectl describe pod <pod-name> -n default
@@ -36,8 +69,10 @@ kubectl get fabricorderernodes.hlf.kungfusoftware.es -n default
 kubectl get fabricmainchannel -A
 
 #Get certificate
-kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' > orderer0-tls.pem
-kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' > orderer1-tls.pem
+kubectl get fabricorderernodes central-bank-node0 -o=jsonpath='{.status.tlsCert}' > orderer0-tls.pem
+kubectl get fabricorderernodes central-bank-node1 -o=jsonpath='{.status.tlsCert}' > orderer1-tls.pem
+kubectl get fabricorderernodes central-bank-node2 -o=jsonpath='{.status.tlsCert}' > orderer2-tls.pem
+kubectl get fabricorderernodes central-bank-node3 -o=jsonpath='{.status.tlsCert}' > orderer3-tls.pem
 etc
 
 

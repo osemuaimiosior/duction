@@ -22,21 +22,21 @@ fi
 
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 
-    # Install the Kubectl plugin
-    kubectl krew install hlf
+# Install the Kubectl plugin
+kubectl krew install hlf
 
 # 4. Install Istio
 curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.23.3 sh -
 
-    # Install Istio on the Kubernetes cluster:
-    kubectl create namespace istio-system
+# Install Istio on the Kubernetes cluster:
+kubectl create namespace istio-system
 
-    export ISTIO_PATH=$(echo $PWD/istio-*/bin)
-    export PATH="$PATH:$ISTIO_PATH"
+export ISTIO_PATH=$(echo $PWD/istio-*/bin)
+export PATH="$PATH:$ISTIO_PATH"
 
-    istioctl operator init
+istioctl operator init
 
-    kubectl apply -f ./src/istioOperator.yaml
+kubectl apply -f ./src/istioOperator.yaml
 
 # 5. Fabric images
 export PEER_IMAGE=hyperledger/fabric-peer
@@ -56,11 +56,14 @@ export SC_NAME=standard
 
 # 8. Deploy CA
 kubectl hlf ca create \
-  --image=$CA_IMAGE --version=$CA_VERSION \
-  --storage-class=$SC_NAME --capacity=1Gi \
-  --name=central-bank-ca \
-  --enroll-id=central-bank --enroll-pw=central-bankpw \
-  --hosts=central-bank-ca.localho.st \
+  --image=$CA_IMAGE \
+  --version=$CA_VERSION \
+  --storage-class=$SC_NAME \
+  --capacity=1Gi \
+  --name=main-branch-ca \
+  --enroll-id=main-branch \
+  --enroll-pw=main-branchpw \
+  --hosts=main-branch-ca.localho.st \
   --istio-port=443
 
 kubectl wait --timeout=180s --for=condition=Running fabriccas.hlf.kungfusoftware.es --all
@@ -80,6 +83,15 @@ kubectl hlf ca register \
     --mspid=Org1MSP
 
 kubectl hlf ca register \
+    --name=main-branch-ca \
+    --user=main-branchpeer \
+    --secret=main-branchpw \
+    --type=peer \
+    --enroll-id=main-branch \
+    --enroll-secret=main-branchpw \
+    --mspid=main-branchMSP
+
+kubectl hlf ca register \
     --name=ng-branch-ca \
     --user=ng-branchpeer \
     --secret=ng-branchpw \
@@ -87,6 +99,7 @@ kubectl hlf ca register \
     --enroll-id=ng-branch \
     --enroll-secret=ng-branchpw \
     --mspid=ng-branchMSP
+
 kubectl hlf ca register \
     --name=us-branch-ca \
     --user=us-branchpeer \
@@ -95,6 +108,7 @@ kubectl hlf ca register \
     --enroll-id=us-branch \
     --enroll-secret=us-branchpw \
     --mspid=us-branchMSP
+
 kubectl hlf ca register \
     --name=eu-branch-ca \
     --user=eu-branchpeer \
@@ -110,13 +124,13 @@ kubectl hlf peer create \
     --image=$PEER_IMAGE \
     --version=$PEER_VERSION \
     --storage-class=$SC_NAME \
-    --enroll-id=peer \
-    --mspid=Org1MSP \
-    --enroll-pw=peerpw \
+    --enroll-id=eu-branchpeer \
+    --mspid=eu-branchMSP \
+    --enroll-pw=eu-branchpw \
     --capacity=5Gi \
-    --name=org1-peer0 \
-    --ca-name=org1-ca.default \
-    --hosts=peer0-org1.localho.st \
+    --name=eu-branch-peer0 \
+    --ca-name=eu-branch-ca.default \
+    --hosts=peer0-eu-branch.localho.st \
     --istio-port=443
 
 kubectl wait --timeout=180s --for=condition=Running fabricpeers.hlf.kungfusoftware.es --all
@@ -135,10 +149,11 @@ kubectl hlf ca create  \
     --image=$CA_IMAGE \
     --version=$CA_VERSION \
     --storage-class=$SC_NAME \
-    --capacity=1Gi --name=ord-ca \
-    --enroll-id=enroll \
-    --enroll-pw=enrollpw \
-    --hosts=ord-ca.localho.st \
+    --capacity=1Gi \
+    --name=central-bank-ca \
+    --enroll-id=central-bank \
+    --enroll-pw=central-bankpw \
+    --hosts=central-bank-ca.localho.st \
     --istio-port=443
 
 kubectl wait --timeout=180s --for=condition=Running fabriccas.hlf.kungfusoftware.es --all
@@ -167,10 +182,10 @@ kubectl hlf ordnode create \
     --mspid=central-bankMSP \
     --enroll-pw=central-bankpw \
     --capacity=2Gi \
-    --name=central-bank-node0 \
+    --name=central-bank-node3 \
     --ca-name=central-bank-ca.default \
-    --hosts=orderer0-central-bank.localho.st \
-    --admin-hosts=admin-orderer0-central-bank.localho.st \
+    --hosts=orderer3-central-bank.localho.st \
+    --admin-hosts=admin-orderer3-central-bank.localho.st \
     --istio-port=443
 
 kubectl wait --timeout=180s --for=condition=Running fabricorderernodes.hlf.kungfusoftware.es --all
@@ -189,52 +204,100 @@ kubectl wait --timeout=180s --for=condition=Running fabricorderernodes.hlf.kungf
     # Register and enrolling OrdererMSP identity
 
         # register
-        kubectl hlf ca register --name=ord-ca --user=admin --secret=adminpw \
-            --type=admin --enroll-id enroll --enroll-secret=enrollpw --mspid=OrdererMSP
+        kubectl hlf ca register\
+            --name=central-bank-ca \
+            --user=central-bankadmin \
+            --secret=central-bankpw \
+            --type=admin \
+            --enroll-id=central-bank \
+            --enroll-secret=central-bankpw \
+            --mspid=central-bankMSP
 
         # enroll
 
-        kubectl hlf ca enroll --name=ord-ca --namespace=default \
-            --user=admin --secret=adminpw --mspid OrdererMSP \
-            --ca-name tlsca  --output orderermsp.yaml
+        kubectl hlf ca enroll \
+            --name=central-bank-ca \
+            --namespace=default \
+            --user=central-bankadmin \
+            --secret=central-bankpw \
+            --mspid=central-bankMSP \
+            --ca-name=tlsca \
+            --output=central-bankmsp-tlsca.yaml
             
-        kubectl hlf ca enroll --name=ord-ca --namespace=default \
-            --user=admin --secret=adminpw --mspid OrdererMSP \
-            --ca-name ca  --output orderermspsign.yaml
+        kubectl hlf ca enroll \
+            --name=central-bank-ca \
+            --namespace=default \
+            --user=central-bankadmin \
+            --secret=central-bankpw \
+            --mspid=central-bankMSP \
+            --ca-name=ca  \
+            --output=central-bankmspsign.yaml
 
     # Register and enrolling Org1MSP Orderer identity
 
         # register
-        kubectl hlf ca register --name=org1-ca --user=admin --secret=adminpw \
-            --type=admin --enroll-id enroll --enroll-secret=enrollpw --mspid=Org1MSP
+        kubectl hlf ca register \
+            --name=main-branch-ca \
+            --user=main-branchadmin \
+            --secret=main-branchpw \
+            --type=admin \
+            --enroll-id=main-branch \
+            --enroll-secret=main-branchpw \
+            --mspid=main-branchMSP
 
         # enroll
 
-        kubectl hlf ca enroll --name=org1-ca --namespace=default \
-            --user=admin --secret=adminpw --mspid Org1MSP \
-            --ca-name tlsca  --output org1msp-tlsca.yaml
+        kubectl hlf ca enroll \
+            --name=main-branch-ca \
+            --namespace=default \
+            --user=main-branchadmin \
+            --secret=main-branchpw \
+            --mspid=main-branchMSP \
+            --ca-name=tlsca  \
+            --output=main-branchmsp-tlsca.yaml
     
     # Register and enrolling Org1MSP identity
 
         # register
-        kubectl hlf ca register --name=main-branch-ca --namespace=default --user=main-branch-admin --secret=main-branch-adminpw \
-            --type=admin --enroll-id main-branch --enroll-secret=enrollpw --mspid=main-branchMSP
+        kubectl hlf ca register \
+            --name=eu-branch-ca \
+            --namespace=default \
+            --user=eu-branchadmin \
+            --secret=eu-branchpw \
+            --type=admin \
+            --enroll-id=eu-branch \
+            --enroll-secret=eu-branchpw \
+            --mspid=eu-branchMSP
 
         # enroll
-        kubectl hlf ca enroll --name=main-branch-ca --namespace=default \
-            --user=main-branch-admin --secret=main-branch-adminpw --mspid main-branchMSP \
-            --ca-name ca  --output main-branchmsp.yaml
+        kubectl hlf ca enroll \
+            --name=eu-branch-ca \
+            --namespace=default \
+            --user=eu-branchadmin \
+            --secret=eu-branchpw \
+            --mspid=eu-branchMSP \
+            --ca-name=ca  \
+            --output=eu-branchmsp.yaml
 
         # enroll
-        kubectl hlf identity create --name main-branch-admin --namespace default \
-            --ca-name main-branch-ca --ca-namespace default \
-            --ca ca --mspid main-branchMSP --enroll-id main-branch --enroll-secret main-branch-adminpw
+        kubectl hlf identity create \
+            --name eu-branch-admin \
+            --namespace default \
+            --ca-name eu-branch-ca \
+            --ca-namespace default \
+            --ca ca \
+            --mspid eu-branchMSP \
+            --enroll-id eu-branch \
+            --enroll-secret eu-branchpw
 
     # Create the secret
     kubectl create secret generic wallet --namespace=default \
-        --from-file=org1msp.yaml=$PWD/org1msp.yaml \
-        --from-file=orderermsp.yaml=$PWD/orderermsp.yaml \
-        --from-file=orderermspsign.yaml=$PWD/orderermspsign.yaml
+        --from-file=main-branchmsp.yaml=$PWD/main-branchmsp.yaml \
+        --from-file=ng-branchmsp.yaml=$PWD/ng-branchmsp.yaml \
+        --from-file=us-branchmsp.yaml=$PWD/us-branchmsp.yaml \
+        --from-file=eu-branchmsp.yaml=$PWD/eu-branchmsp.yaml \
+        --from-file=central-bankmsp.yaml=$PWD/central-bankmsp.yaml \
+        --from-file=central-bankmspsign.yaml=$PWD/central-bankmspsign.yaml
 
 # 16. Create main channel
 export PEER_ORG_SIGN_CERT=$(kubectl get fabriccas main-branch-ca -o=jsonpath='{.status.ca_cert}')
@@ -242,16 +305,17 @@ export PEER_ORG_TLS_CERT=$(kubectl get fabriccas main-branch-ca -o=jsonpath='{.s
 
 export IDENT_8=$(printf "%8s" "")
 export ORDERER_TLS_CERT=$(kubectl get fabriccas central-bank-ca -o=jsonpath='{.status.tlsca_cert}' | sed -e "s/^/${IDENT_8}/" )
-export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node0 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
-export ORDERER1_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
-export ORDERER2_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node2 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
-export ORDERER2_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node3 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node0 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/")
+export ORDERER1_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/")
+export ORDERER2_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node2 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/")
+export ORDERER3_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node3 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/")
+
 
 kubectl apply -f ./src/mainChannel.yaml
 
 # 17. Join peer to the channel
 export IDENT_8=$(printf "%8s" "")
-export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes central-bank-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
 
 kubectl apply -f ./src/joinPeer.yaml
 
@@ -275,19 +339,19 @@ kubectl apply -f ./src/joinPeer.yaml
     
     # Get the certificates using the user created above
     kubectl hlf ca enroll \
-        --name=org1-ca \
-        --user=admin \
-        --secret=adminpw \
-        --mspid Org1MSP \
-        --ca-name ca  \
-        --output peer-org1.yaml
+        --name=main-branch-ca \
+        --user=main-branchadmin \
+        --secret=main-branchpw \
+        --mspid=main-branchMSP \
+        --ca-name=ca  \
+        --output=peer-main-branch.yaml
 
     # Attach the user to the connection string
     kubectl hlf utils adduser \
-        --userPath=peer-org1.yaml \
-        --config=org1.yaml \
-        --username=admin \
-        --mspid=Org1MSP
+        --userPath=peer-main-branch.yaml \
+        --config=main-branch.yaml \
+        --username=main-branchadmin \
+        --mspid=main-branchMSP
 
     # Create metadata file - chaincode as a service
 
@@ -306,11 +370,11 @@ kubectl apply -f ./src/joinPeer.yaml
 
         kubectl hlf chaincode install \
             --path=./chaincode.tgz \
-            --config=org1.yaml \
-            --language=golang \
+            --config=main-branch.yaml \
+            --language=node \
             --label=$CHAINCODE_LABEL \
-            --user=admin \
-            --peer=org1-peer0.default
+            --user=main-branchadmin \
+            --peer=main-branch-peer0.default
 
     # Deploy chaincode container on cluster
     kubectl hlf externalchaincode sync \
@@ -319,38 +383,38 @@ kubectl apply -f ./src/joinPeer.yaml
         --namespace=default \
         --package-id=$PACKAGE_ID \
         --tls-required=false \
-        --replicas=1
+        --replicas=4
 
     # Check installed chaincodes
     kubectl hlf chaincode queryinstalled \
-        --config=org1.yaml \
-        --user=admin \
-        --peer=org1-peer0.default
+        --config=main-branch.yaml \
+        --user=main-branchadmin \
+        --peer=main-branch-peer0.default
 
 # 19. Approve chaincode
 export SEQUENCE=1
 export VERSION="1.0"
 
 kubectl hlf chaincode approveformyorg \
-    --config=org1.yaml \
-    --user=admin \
-    --peer=org1-peer0.default \
+    --config=main-branch.yaml \
+    --user=main-branchadmin \
+    --peer=main-branch-peer0.default \
     --package-id=$PACKAGE_ID \
     --version "$VERSION" \
     --sequence "$SEQUENCE" \
     --name=asset \
-    --policy="OR('Org1MSP.member')" \
+    --policy="OR('main-branchMSP.member')" \
     --channel=demo
 
     # Commit chaincode
     kubectl hlf chaincode commit \
-        --config=org1.yaml \
-        --user=admin \
-        --mspid=Org1MSP \
+        --config=main-branch.yaml \
+        --user=main-branchadmin \
+        --mspid=main-branchMSP \
         --version "$VERSION" \
         --sequence "$SEQUENCE" \
         --name=asset \
-        --policy="OR('Org1MSP.member')" \
+        --policy="OR('main-branchMSP.member')" \
         --channel=demo
 
     # Invoke a transaction on the channel
