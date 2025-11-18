@@ -20,7 +20,6 @@
     kind create cluster --name ${CLUSTER_NAME} --config kube/kind-config.yaml
 
 sleep 1
-
 # Create the Kube namespace
     kubectl create namespace ${NAMESPACE}
 
