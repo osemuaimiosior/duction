@@ -1,5 +1,5 @@
 ./env
-./node_module
+./node_modules
 ./src
 ./fabric-samples
 ./fabric

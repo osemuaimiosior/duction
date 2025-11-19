@@ -1,15 +1,24 @@
 #!/bin/sh
 
-    set -e
+set -e
 
 # echo "⏳ Waiting for the database to be ready..."
 
 # Load environment variables from .env if it exists
-    if [ -f .env ]; then
+  if [ -f .env ]; then
     echo "📄 Loading environment from .env"
-    export $(grep -v '^#' .env | xargs)
-    fi
+    # export $(grep -v '^#' .env | xargs)
+    set -a
+    . .env
+    set +a
+  fi
 
+# Point kubectl to the mounted kubeconfig
+export KUBECONFIG=$HOME/.kube/config
+
+# Optional: test connection
+kubectl cluster-info
+  
 # Ensure NODE_ENV is set, default to production
     NODE_ENV="${NODE_ENV:-production}"
 
@@ -17,7 +26,7 @@
     echo "Creating network cluster..."
 
 # Create the KIND cluster and nginx ingress controller bound to :80 and :443
-    kind create cluster --name ${CLUSTER_NAME} --config kube/kind-config.yaml
+    # kind create cluster --name ${CLUSTER_NAME} --config kube/kind-config.yaml
 
 sleep 1
 # Create the Kube namespace

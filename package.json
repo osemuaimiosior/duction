@@ -1,0 +1,28 @@
+{
+  "name": "duction",
+  "version": "1.0.0",
+  "description": "Duction is a permissioned distributed blockchain core banking platform.",
+  "homepage": "https://github.com/osemuaimiosior/duction#readme",
+  "bugs": {
+    "url": "https://github.com/osemuaimiosior/duction/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osemuaimiosior/duction.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^1.4.0",
+    "connect-timeout": "^1.9.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "nodemon": "^3.1.11"
+  }
+}
