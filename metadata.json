@@ -2,3 +2,18 @@
     "type": "ccaas",
     "label": "asset"
 }
+
+{
+    "kind":"Status",
+    "apiVersion":"v1",
+    "metadata":{},
+    "status":"Failure",
+    "message":"validatingwebhookconfigurations.admissionregistration.k8s.io \"ingress-nginx-admission\" already exists",
+    "reason":"AlreadyExists",
+    "details":{
+        "name":"ingress-nginx-admission",
+        "group":"admissionregistration.k8s.io",
+        "kind":"validatingwebhookconfigurations"
+        },
+        "code":409
+}

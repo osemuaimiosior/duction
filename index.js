@@ -3,10 +3,20 @@ require('dotenv').config();
 // const cron = require('node-cron');
 const express = require('express');
 const app = express();
-const createNS = require('./network/ns');
-const pvcApply = require('./network/pvcApply');
+const {
+    createNS, 
+    pvcApply, 
+    initIngress, 
+    applyYamlFromUrl,
+    checkCertMgDeployment,
+    waitForNginxIngress,
+    runSetup
+  } = require('./network/setup');
 // const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
+
+
+const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
 console.log(`Starting application with NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`Environment variables loaded:`);
@@ -52,18 +62,8 @@ app.get("/health", (req, res) => {
 
 ////<======================= fabric network startup ======>>////
 
-// Step 1. Create kubernetese cluster name space
-createNS().catch(err => {
-  console.error('Creating Name Space failed:', err);
-  process.exit(1);
-});
-
-pvcApply().catch(err => {
-  console.error('Creating Name Space failed:', err);
-  process.exit(1);
-});
-
-// Step 2. Create persistent volume claims binding to the host (docker) volumes
+// Start sequential workflow:
+runSetup();
 
 ////<======================= fabric network startup ======>>////
 

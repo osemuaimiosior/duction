@@ -75,6 +75,9 @@ kubectl get fabricorderernodes central-bank-node2 -o=jsonpath='{.status.tlsCert}
 kubectl get fabricorderernodes central-bank-node3 -o=jsonpath='{.status.tlsCert}' > orderer3-tls.pem
 etc
 
+kubectl delete all --all --all-namespaces
+
+
 
 
 
