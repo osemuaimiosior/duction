@@ -360,7 +360,7 @@ async function waitForNginxIngress() {
   }
 
   throw new Error(`Timeout: NGINX ingress controller pod did not become Ready within ${timeoutMs} minutes`);
-}
+};
 
 async function recreateConfigMap() {
   // 1. Read all files from folder
@@ -477,7 +477,7 @@ async function recreateConfigMap() {
   }
 
   
-}
+};
 
 async function initTLSCertIssuers(){
 
@@ -562,7 +562,7 @@ async function waitForTLSIssuerReady(timeoutMs = 30000, intervalMs = 2000) {
 
   console.log("\n All issuers are Ready in org0, org1, org2");
   return true;
-}
+};
 
 async function generateTLS() {
 
@@ -601,7 +601,7 @@ async function generateTLS() {
     }
   };
   
-}
+};
 
 async function waitForGeneratedIssuerReady(timeoutMs = 30000, intervalMs = 2000) {
   const issuerMap = {
@@ -860,7 +860,302 @@ async function enrollOrgCA() {
   }  
 };
 
+async function registerOrderer() {
+  const { DOMAIN, NGINX_HTTPS_PORT, RCAADMIN_USER } = process.env;
+  const base = process.cwd();
+
+  const Orderers = ["org0-orderer1", "org0-orderer2", "org0-orderer3"];
+
+  for (const od of Orderers){
+
+    const tlsCert = `${base}/build/cas/org0-ca/tlsca-cert.pem`;
+    const adminMsp = `${base}/build/enrollments/org0/users/${RCAADMIN_USER}/msp`;
+
+    const cmd = `
+      fabric-ca-client register \
+        --id.name ${od} \
+        --id.secret ordererpw \
+        --id.type orderer \
+        --url https://org0-ca.${DOMAIN}:${NGINX_HTTPS_PORT} \
+        --tls.certfiles ${tlsCert} \
+        --mspdir ${adminMsp}
+    `;
+
+    try {
+      console.log(`Registering ${od}...`);
+      const { stdout } = await execAsync(cmd);
+      console.log(stdout);
+      console.log("Registered org0-orderer1");
+    } catch (err) {
+      // Handle “already registered”
+      if (err.stderr?.includes("already registered") || err.code === 1) {
+        console.log(`${od} was already registered — continuing.`);
+        return;
+      }
+      console.error("Registration failed");
+      throw err;
+    }
+  }
+  
+};
+
+async function enrollOrdererInsidePod() {
+
+   const Orderers = ["org0-orderer1", "org0-orderer2", "org0-orderer3"];
+
+  for (const od of Orderers){
+
+    const podCmd = `
+      set -x
+
+      export FABRIC_CA_CLIENT_HOME=/var/hyperledger/fabric-ca-client
+      export FABRIC_CA_CLIENT_TLS_CERTFILES=/var/hyperledger/fabric/config/tls/ca.crt
+
+      fabric-ca-client enroll \
+        --url https://${od}:ordererpw@org0-ca \
+        --csr.hosts org0-orderer \
+        --mspdir /var/hyperledger/fabric/organizations/ordererOrganizations/org0.example.com/orderers/${od}.org0.example.com/msp
+
+      # Write config.yaml
+      echo "NodeOUs:
+        Enable: true
+        ClientOUIdentifier:
+          Certificate: cacerts/org0-ca.pem
+          OrganizationalUnitIdentifier: client
+        PeerOUIdentifier:
+          Certificate: cacerts/org0-ca.pem
+          OrganizationalUnitIdentifier: peer
+        AdminOUIdentifier:
+          Certificate: cacerts/org0-ca.pem
+          OrganizationalUnitIdentifier: admin
+        OrdererOUIdentifier:
+          Certificate: cacerts/org0-ca.pem
+          OrganizationalUnitIdentifier: orderer" > /var/hyperledger/fabric/organizations/ordererOrganizations/org0.example.com/orderers/${od}.org0.example.com/msp/config.yaml
+    `;
+
+    try {
+      console.log("Executing enrollment inside CA pod...");
+
+      const { stdout } = await execAsync(
+        `kubectl -n org0 exec deploy/org0-ca -i -- /bin/sh << 'EOF'\n${podCmd}\nEOF`
+      );
+
+      console.log(stdout);
+      console.log("Orderer enrollment completed inside CA pod");
+
+    } catch (err) {
+      console.error("Enrollment inside CA pod failed");
+      console.error(err.stderr || err);
+      throw err;
+    };
+}
+};
+
+async function registerPeers() {
+  const { DOMAIN, NGINX_HTTPS_PORT, RCAADMIN_USER } = process.env;
+  const base = process.cwd();
+
+  const peers = [
+    "org1-peer0",  
+    "org1-peer1",
+    "org2-peer0",
+    "org2-peer1"
+  ];
+
+  const orga = {
+    "org1-peer0": "org1", 
+    "org1-peer1": "org1", 
+    "org2-peer0": "org2",
+    "org2-peer1": "org2"
+  };
+
+  const caMap = {
+    "org1-peer0": "org1-ca", 
+    "org1-peer1": "org1-ca", 
+    "org2-peer0": "org2-ca",
+    "org2-peer1": "org2-ca"
+  };
+
+  for (const peer of peers) {
+
+    const tlsCert = `${base}/build/cas/${caMap[peer]}/tlsca-cert.pem`;
+    const adminMsp = `${base}/build/enrollments/${orga[peer]}/users/${RCAADMIN_USER}/msp`;
+
+    const cmd = `
+      fabric-ca-client register \
+        --id.name ${peer} \
+        --id.secret ordererpw \
+        --id.type peer \
+        --url https://${caMap[peer]}.${DOMAIN}:${NGINX_HTTPS_PORT} \
+        --tls.certfiles ${tlsCert} \
+        --mspdir ${adminMsp}
+    `;
+
+    try {
+      console.log(`Registering ${od}...`);
+      const { stdout } = await execAsync(cmd);
+      console.log(stdout);
+      console.log("Registered org0-orderer1");
+    } catch (err) {
+      // Handle “already registered”
+      if (err.stderr?.includes("already registered") || err.code === 1) {
+        console.log(`${od} was already registered — continuing.`);
+        return;
+      }
+      console.error("Registration failed");
+      throw err;
+    }
+  }
+  
+};
+
+async function enrollPeerInsidePod() {
+
+   const peers = [
+    "org1-peer0",  
+    "org1-peer1",
+    "org2-peer0",
+    "org2-peer1"
+  ];
+
+  const orga = {
+    "org1-peer0": "org1", 
+    "org1-peer1": "org1", 
+    "org2-peer0": "org2",
+    "org2-peer1": "org2"
+  };
+
+  const caMap = {
+    "org1-peer0": "org1-ca", 
+    "org1-peer1": "org1-ca", 
+    "org2-peer0": "org2-ca",
+    "org2-peer1": "org2-ca"
+  };
+
+  for (const peer of peers){
+
+    const podCmd = `
+      set -x
+      export FABRIC_CA_CLIENT_HOME=/var/hyperledger/fabric-ca-client
+      export FABRIC_CA_CLIENT_TLS_CERTFILES=/var/hyperledger/fabric/config/tls/ca.crt
+
+      fabric-ca-client enroll \
+        --url https://${peer}:peerpw@${caMap[peer]} \
+        --csr.hosts localhost,org1-peer,org1-peer-gateway-svc \
+        --mspdir /var/hyperledger/fabric/organizations/peerOrganizations/${orga[peer]}.example.com/peers/${peer}.${orga[peer]}.example.com/msp
+
+      # Create local MSP config.yaml
+      echo "NodeOUs:
+        Enable: true
+        ClientOUIdentifier:
+          Certificate: cacerts/${caMap[peer]}.pem
+          OrganizationalUnitIdentifier: client
+        PeerOUIdentifier:
+          Certificate: cacerts/${caMap[peer]}.pem
+          OrganizationalUnitIdentifier: peer
+        AdminOUIdentifier:
+          Certificate: cacerts/${caMap[peer]}.pem
+          OrganizationalUnitIdentifier: admin
+        OrdererOUIdentifier:
+          Certificate: cacerts/${caMap[peer]}.pem
+          OrganizationalUnitIdentifier: orderer" > /var/hyperledger/fabric/organizations/peerOrganizations/${orga[peer]}.example.com/peers/${peer}.${orga[peer]}.example.com/msp/config.yaml
+    `;
+
+    try {
+      console.log("Executing enrollment inside CA pod...");
+
+      const { stdout } = await execAsync(
+        `kubectl -n ${orga[peer]} exec deploy/${caMap[peer]}-i -- /bin/sh << 'EOF'\n${podCmd}\nEOF`
+      );
+
+      console.log(stdout);
+      console.log("Orderer enrollment completed inside CA pod");
+
+    } catch (err) {
+      console.error("Enrollment inside CA pod failed");
+      console.error(err.stderr || err);
+      throw err;
+    };
+}
+};
+
+async function setupOrg0Orderers() {
+  await registerOrderer();
+  await enrollOrdererInsidePod();
+};
+
+async function setupOrgPeers() {
+  await registerPeers();
+  await enrollPeerInsidePod();
+};
+
+async function applyOrdererYaml() {
+
+  const orderers = ["org0-orderer1", "org0-orderer2", "org0-orderer3"];
+
+      if(process.env.ORDERER_TYPE === "bft"){
+          try {
+          const namespace = "org0";
+          const yamlPath = `kube/org0/org0-orderer4.yaml`;
+
+          // 1. Read YAML file
+          let yamlContent = fs.readFileSync(yamlPath, "utf8");
+
+          // 2. Perform envsubst manually
+          yamlContent = yamlContent.replace(/\$\{([^}]+)\}/g, (_, name) => {
+            return process.env[name] || "";
+          });
+
+          // 3. Apply using kubectl via stdin (-f -)
+          const { stdout, stderr } = await execAsync(
+            `kubectl -n ${namespace} apply -f -`,
+            { input: yamlContent }
+          );
+
+          console.log(stdout);
+          if (stderr) console.log(stderr);
+
+          console.log(`org0-orderer4.yaml applied successfully`);
+        } catch (err) {
+            console.error(`Failed to apply org0-orderer4.yaml`);
+            console.error(err);
+            throw err;
+        }
+      } 
+
+      for (const orderer of orderers){
+          try {
+            const namespace = "org0";
+            const yamlPath = `kube/org0/${orderer}.yaml`;
+
+            // 1. Read YAML file
+            let yamlContent = fs.readFileSync(yamlPath, "utf8");
+
+            // 2. Perform envsubst manually
+            yamlContent = yamlContent.replace(/\$\{([^}]+)\}/g, (_, name) => {
+              return process.env[name] || "";
+            });
+
+            // 3. Apply using kubectl via stdin (-f -)
+            const { stdout, stderr } = await execAsync(
+              `kubectl -n ${namespace} apply -f -`,
+              { input: yamlContent }
+            );
+
+            console.log(stdout);
+            if (stderr) console.log(stderr);
+
+            console.log(`${orderer}.yaml applied successfully`);
+          } catch (err) {
+              console.error(`Failed to apply ${orderer}.yaml`);
+              console.error(err);
+              throw err;
+          };
+      }; 
+  };
+
 const runSetup = async () => {
+  
   try {
     console.log("STEP 1: Creating namespace...");
     await createNS();
@@ -949,6 +1244,18 @@ const runSetup = async () => {
     await enrollOrgCA()
     console.log("DOne\n");
 
+    console.log("STEP 16: Setup Org0 Orderers...");
+    await setupOrg0Orderers()
+    console.log("DOne\n");
+
+    console.log("STEP 17: Setup Org Peers...");
+    await setupOrgPeers()
+    console.log("DOne\n");
+
+    console.log("STEP 18: Apply Orderer Yaml...");
+    await applyOrdererYaml()
+    console.log("DOne\n");
+
     console.log("\n🎉 ALL STEPS COMPLETED SUCCESSFULLY!\n");
 
   } catch (err) {
@@ -974,5 +1281,8 @@ module.exports = {
     applyCAYamlToNamespace,
     extractCACert,
     enrollOrgCA,
+    setupOrg0Orderers,
+    setupOrgPeers,
+    applyOrdererYaml,
     runSetup
 };
