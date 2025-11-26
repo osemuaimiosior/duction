@@ -1087,6 +1087,7 @@ async function setupOrg0Orderers() {
 async function setupOrgPeers() {
   await registerPeers();
   await enrollPeerInsidePod();
+  
 };
 
 async function applyOrdererYaml() {
