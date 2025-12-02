@@ -16,14 +16,15 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js"
+    "start": "dotenvx run -- nodemon index.js"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.51.1",
     "@kubernetes/client-node": "^1.4.0",
     "axios": "^1.13.2",
     "connect-timeout": "^1.9.1",
     "dotenv": "^17.2.3",
-    "express": "^5.1.0",
+    "express": "^5.2.1",
     "nodemon": "^3.1.11"
   }
 }
