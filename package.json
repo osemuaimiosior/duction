@@ -23,8 +23,11 @@
     "@kubernetes/client-node": "^1.4.0",
     "axios": "^1.13.2",
     "connect-timeout": "^1.9.1",
+    "crypto": "^1.0.1",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "nodemon": "^3.1.11"
+    "fs-extra": "^11.3.2",
+    "nodemon": "^3.1.11",
+    "tar": "^7.5.2"
   }
 }

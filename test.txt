@@ -1,3 +1,13 @@
+#Cert manager download
+curl -L   -o cert-manager.yaml   https://raw.githubusercontent.com/jetstack/cert-manager/v1.19.1/deploy/manifests/cert-manager.yaml
+curl -L   -o cert-manager.yaml https://github.com/cert-manager/cert-manager/releases/download/v1.19.1/cert-manager.yaml
+
+# Multi-cloud deployment
+1. AWS describe-availability-zones. 
+2. GCP list-zones.
+3. Azure list-locations.
+4. DigitalOcean doctl compute region list.
+
 #Edit wallet seceret
 kubectl edit secret wallet -n default
 
