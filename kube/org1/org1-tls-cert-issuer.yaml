@@ -3,6 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+# commonName: - A Common Name (CN) on a certificate, especially an SSL/TLS certificate, is the primary identifier for the secure server, 
+# usually the exact domain name (e.g., www.example.com) or a wildcard (*.example.com) that the certificate protects, 
+# and it must precisely match the website address users type in their browser to prevent security warnings. It's a key field in digital certificates, 
+# identifying who or what the certificate belongs to, though modern certificates increasingly use Subject Alternative Names (SANs) for broader coverage.
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -13,7 +17,7 @@ spec:
   privateKey:
     algorithm: ECDSA
     size: 256
-  commonName: org1.example.com
+  commonName: org1.example.com 
   secretName: org1-tls-cert-issuer-secret
   issuerRef:
     name: root-tls-cert-issuer

@@ -1,3 +1,16 @@
+kubectl apply -f kube/localStorageClass.yaml
+
+
+# Download fabric-ca-client locally
+
+curl -sSL https://bit.ly/2ysbOFE | bash -s
+export PATH=$PWD/bin:$PATH
+
+# ENV substitution (simple envsubst): example
+
+let content = fs.readFileSync(filePath, "utf8");
+content = content.replace(/\$\{(\w+)\}/g, (_, name) => process.env[name] || "");
+
 #Cert manager download
 curl -L   -o cert-manager.yaml   https://raw.githubusercontent.com/jetstack/cert-manager/v1.19.1/deploy/manifests/cert-manager.yaml
 curl -L   -o cert-manager.yaml https://github.com/cert-manager/cert-manager/releases/download/v1.19.1/cert-manager.yaml

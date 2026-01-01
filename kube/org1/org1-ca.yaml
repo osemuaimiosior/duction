@@ -70,8 +70,10 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 443
-            initialDelaySeconds: 2
+            initialDelaySeconds: 10
             periodSeconds: 5
+            # Belo: This is new (Optional)
+            failureThreshold: 6 
       volumes:
         - name: fabric-volume
           persistentVolumeClaim:
@@ -91,6 +93,8 @@ spec:
   ports:
     - name: https
       port: 443
+      targetPort: 443
+      # Above: This is new (Optional)
       protocol: TCP
   selector:
     app: org1-ca
@@ -102,6 +106,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: 60s
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
   labels:
     app: org1-ca
   name: org1-ca

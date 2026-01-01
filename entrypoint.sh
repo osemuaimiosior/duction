@@ -35,9 +35,9 @@ sleep 1
 sleep 1
 
 # # Create host persistent volumes (tied the kind-control-plane docker image lifetime)
-# kubectl create -f kube/pv-fabric-org0.yaml
-# kubectl create -f kube/pv-fabric-org1.yaml
-# kubectl create -f kube/pv-fabric-org2.yaml
+kubectl create -f kube/pv-fabric-org0.yaml
+kubectl create -f kube/pv-fabric-org1.yaml
+kubectl create -f kube/pv-fabric-org2.yaml
 
 # sleep 1 
 

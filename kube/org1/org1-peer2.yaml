@@ -26,8 +26,6 @@ spec:
   secretName: org1-peer2-tls-cert
   issuerRef:
     name: org1-tls-cert-issuer
-
-
 ---
 apiVersion: v1
 kind: ConfigMap

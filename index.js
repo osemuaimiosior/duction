@@ -60,6 +60,10 @@ app.get("/health", (req, res) => {
   res.status(200).json(healthInfo);
 });
 
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
 ////<======================= fabric network startup ======>>////
 
 // Start sequential workflow:
@@ -68,6 +72,3 @@ runSetup();
 ////<======================= fabric network startup ======>>////
 
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});

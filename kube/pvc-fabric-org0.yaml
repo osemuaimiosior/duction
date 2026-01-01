@@ -10,9 +10,13 @@ metadata:
   name: fabric-org0
   namespace: org0
 spec:
+  # selector:
+  #   matchLabels:
+  #     org: org0
   accessModes:
     - ReadWriteOnce
   storageClassName: standard
+  # storageClassName: fabric-local
   resources:
     requests:
       storage: 1Gi

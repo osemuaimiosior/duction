@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.51.1",
-    "@kubernetes/client-node": "^1.4.0",
+    "@kubernetes/client-node": "^0.21.0",
     "axios": "^1.13.2",
     "connect-timeout": "^1.9.1",
     "crypto": "^1.0.1",
