@@ -5,7 +5,7 @@ const fsp = require('fs/promises');
 const path = require("path");
 const yaml = require('js-yaml');
 const axios = require('axios');
-const { getType, sleep } =require('./utils/helper');
+const { getType, sleep } = require('./utils/helper');
 const { exec, execSync } = require("child_process");
 const util = require("util");
 const { spawn } = require("child_process");
@@ -1121,6 +1121,46 @@ async function registerPeers() {
   
 };
 
+async function mountMSPConfig() {
+
+  const caMap = {
+    "org1-peer1": "org1", 
+    "org1-peer2": "org1", 
+    "org2-peer1": "org2",
+    "org2-peer2": "org2"
+  };
+
+  const orgPeers = [
+    "org1-peer1",  
+    "org1-peer2",
+    "org2-peer1",
+    "org2-peer2"
+  ];
+
+  for (const peer of orgPeers) {
+
+    const localFile = path.join(__dirname, "..", "kube", caMap[peer], "msp-config.yaml" );
+
+    const cmd = `kubectl -n ${caMap[peer]} create configmap ${peer}-msp-config --from-file=config.yaml=${localFile} --dry-run=client -o yaml | kubectl apply -f - `;
+
+    try {
+      const { stdout, stderr } = await execAsync(cmd);
+
+      if (stdout) {
+        console.log(`[${caMap[peer]}] MSP ConfigMap applied:\n`, stdout);
+      }
+
+      if (stderr) {
+        console.error(`[${caMap[peer]}] STDERR:\n`, stderr);
+      }
+
+    } catch (err) {
+      console.error(`[${caMap[peer]}] Failed to apply MSP ConfigMap`, err);
+      throw err;
+    }
+  }
+}
+
 async function enrollPeerInsidePod() {
 
   const peers = [
@@ -1169,28 +1209,32 @@ async function enrollPeerInsidePod() {
 
           const stdout1 = await execAsync(ocm1);
 
-        // if (stdout1.stderr){
-        //     console.log("stderr:", stdout1.stderr);
-        //   };
+        if (stdout1.stdout){
+            console.log("stdout result: ", stdout1.stdout);
+          };
 
-          // console.log(`Peer ${peer} enrollment completed inside CA pod`);
+        if (stdout1.stderr){
+            console.log("stderr result:", stdout1.stderr);
+          };
+
+          console.log(`Peer ${peer} enrollment completed inside CA pod`);
 
         } catch (err) {
           console.error("Enrollment inside CA pod failed ", err);
         };
 
-        const localFile1 = path.join(__dirname, "..", "kube", "org1", "msp-config.yaml");
+        // const localFile1 = path.join(__dirname, "..", "kube", "org1", "msp-config.yaml");
 
-        const podCmdNew = `kubectl -n org1 get pod -l app=org1-ca -o jsonpath='{.items[0].metadata.name}'`;
+        // const podCmdNew = `kubectl -n org1 get pod -l app=org1-ca -o jsonpath='{.items[0].metadata.name}'`;
 
-        const { stdout: podName } = await execAsync(podCmdNew);
+        // const { stdout: podName } = await execAsync(podCmdNew);
 
-        const cmd1 = `
-          kubectl -n org1 cp ${localFile1} ${podName}:/tmp/config.yaml && kubectl -n org1 exec ${podName} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org1.example.com/peers/org1-peer1.org1.example.com/msp/config.yaml'
-        `;
+        // const cmd1 = `
+        //   kubectl -n org1 cp ${localFile1} ${podName}:/tmp/msp-config.yaml && kubectl -n org1 exec ${podName} -- sh -c 'cp /tmp/msp-config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org1.example.com/peers/org1-peer1.org1.example.com/msp'
+        // `;
 
-        const rr = await execAsync(cmd1);
-        console.log(rr);
+        // const rr = await execAsync(cmd1);
+        // console.log(rr);
 
       break;
 
@@ -1226,17 +1270,17 @@ async function enrollPeerInsidePod() {
           console.error("Enrollment inside CA pod failed ", err);
         };
 
-        const localFile2 = path.join(__dirname, "..", "kube", "org1", "msp-config.yaml");
+        // const localFile2 = path.join(__dirname, "..", "kube", "org1", "msp-config.yaml");
 
-        const podCmdNew2 = `kubectl -n org1 get pod -l app=org1-ca -o jsonpath='{.items[0].metadata.name}'`;
+        // const podCmdNew2 = `kubectl -n org1 get pod -l app=org1-ca -o jsonpath='{.items[0].metadata.name}'`;
 
-        const { stdout: podName2 } = await execAsync(podCmdNew2);
+        // const { stdout: podName2 } = await execAsync(podCmdNew2);
 
-        const cmd2 = `
-          kubectl -n org1 cp ${localFile2} ${podName2}:/tmp/config.yaml && kubectl -n org1 exec ${podName2} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org1.example.com/peers/org1-peer2.org1.example.com/msp/config.yaml'
-        `;
+        // const cmd2 = `
+        //   kubectl -n org1 cp ${localFile2} ${podName2}:/tmp/config.yaml && kubectl -n org1 exec ${podName2} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org1.example.com/peers/org1-peer2.org1.example.com/msp/config.yaml'
+        // `;
 
-        await execAsync(cmd2);
+        // await execAsync(cmd2);
 
       break;
 
@@ -1272,17 +1316,17 @@ async function enrollPeerInsidePod() {
           console.error("Enrollment inside CA pod failed ", err);
         };
 
-        const localFile3 = path.join(__dirname, "..", "kube", "org2", "msp-config.yaml");
+        // const localFile3 = path.join(__dirname, "..", "kube", "org2", "msp-config.yaml");
 
-        const podCmdNew3 = `kubectl -n org2 get pod -l app=org2-ca -o jsonpath='{.items[0].metadata.name}'`;
+        // const podCmdNew3 = `kubectl -n org2 get pod -l app=org2-ca -o jsonpath='{.items[0].metadata.name}'`;
 
-        const { stdout: podName3 } = await execAsync(podCmdNew3);
+        // const { stdout: podName3 } = await execAsync(podCmdNew3);
 
-        const cmd3 = `
-          kubectl -n org2 cp ${localFile3} ${podName3}:/tmp/config.yaml && kubectl -n org2 exec ${podName3} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org2.example.com/peers/org2-peer1.org2.example.com/msp/config.yaml'
-        `;
+        // const cmd3 = `
+        //   kubectl -n org2 cp ${localFile3} ${podName3}:/tmp/config.yaml && kubectl -n org2 exec ${podName3} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org2.example.com/peers/org2-peer1.org2.example.com/msp/config.yaml'
+        // `;
 
-        await execAsync(cmd3);
+        // await execAsync(cmd3);
 
       break;
 
@@ -1293,7 +1337,7 @@ async function enrollPeerInsidePod() {
           export FABRIC_CA_CLIENT_HOME=/var/hyperledger/fabric-ca-client
           export FABRIC_CA_CLIENT_TLS_CERTFILES=/var/hyperledger/fabric/config/tls/ca.crt
 
-          MSP_DIR3=/var/hyperledger/fabric/organizations/peerOrganizations/org2.example.com/peers/org2-peer2.org2.example.com/msp
+          MSP_DIR4=/var/hyperledger/fabric/organizations/peerOrganizations/org2.example.com/peers/org2-peer2.org2.example.com/msp
 
           mkdir -p "$MSP_DIR4"
 
@@ -1308,9 +1352,9 @@ async function enrollPeerInsidePod() {
 
           const stdout1 = await execAsync(ocm4);
 
-        // if (stdout1.stderr){
-        //     console.log("stderr:", stdout1.stderr);
-        //   };
+        if (stdout1.stderr){
+            console.log("org2-peer2 stderr:", stdout1.stderr);
+          };
 
           // console.log(`Peer ${peer} enrollment completed inside CA pod`);
 
@@ -1318,17 +1362,17 @@ async function enrollPeerInsidePod() {
           console.error("Enrollment inside CA pod failed ", err);
         };
 
-        const localFile4 = path.join(__dirname, "..", "kube", "org2", "msp-config.yaml");
+        // const localFile4 = path.join(__dirname, "..", "kube", "org2", "msp-config.yaml");
 
-        const podCmdNew4 = `kubectl -n org2 get pod -l app=org2-ca -o jsonpath='{.items[0].metadata.name}'`;
+        // const podCmdNew4 = `kubectl -n org2 get pod -l app=org2-ca -o jsonpath='{.items[0].metadata.name}'`;
 
-        const { stdout: podName4 } = await execAsync(podCmdNew4);
+        // const { stdout: podName4 } = await execAsync(podCmdNew4);
 
-        const cmd4 = `
-          kubectl -n org2 cp ${localFile4} ${podName4}:/tmp/config.yaml && kubectl -n org2 exec ${podName4} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org2.example.com/peers/org2-peer2.org2.example.com/msp/config.yaml'
-        `;
+        // const cmd4 = `
+        //   kubectl -n org2 cp ${localFile4} ${podName4}:/tmp/config.yaml && kubectl -n org2 exec ${podName4} -- sh -c 'cp /tmp/config.yaml /var/hyperledger/fabric/organizations/peerOrganizations/org2.example.com/peers/org2-peer2.org2.example.com/msp/config.yaml'
+        // `;
 
-        await execAsync(cmd4);
+        // await execAsync(cmd4);
 
       break;
 
@@ -1344,6 +1388,7 @@ async function setupOrg0Orderers() {
 async function setupOrgPeers() {
   await registerPeers();
   await enrollPeerInsidePod();
+  await mountMSPConfig();
 };
 
 // const applyOrdererYaml = async () => {
@@ -1785,50 +1830,87 @@ const enrollOrgAdmins = async () => {
       "org2",
   ];
 
-  for (let org of orga){
-    ORG_ADMIN_DIR=`${ENROLLMENTS_DIR}/${org}/users/rcaadmin`
-    // ORG_ADMIN_DIR=`${ENROLLMENTS_DIR}/${org}/users/${org}admin`
+  for (let org of orga) {
+  const ORG_ADMIN_DIR = `${ENROLLMENTS_DIR}/${org}/users/rcaadmin`;
 
-    const path = `${ORG_ADMIN_DIR}/msp/keystore/key.pem`
-    
-    // if(path){
-    //     console.log(`Found an existing admin enrollment at ${ORG_ADMIN_DIR}`)
-    //     break;
-    // };
+  // fs.mkdirSync(ORG_ADMIN_DIR, { recursive: true });
 
-    //Determine the CA information and TLS certificate
-    CA_NAME=`${org}-ca`
-    CA_DIR=`${base}/build/cas/${CA_NAME}`
+  if (
+    fs.existsSync(`${ORG_ADMIN_DIR}/msp/keystore/key.pem`) &&
+    fs.existsSync(`${ORG_ADMIN_DIR}/tls/keystore/key.pem`)
+  ) {
+    console.log(`Found existing admin enrollment at ${ORG_ADMIN_DIR}`);
+    continue;
+  }
 
-    CA_AUTH=`${org}admin:${org}pw`
-    CA_HOST=`${CA_NAME}.${DOMAIN}`
-    CA_PORT=`${NGINX_HTTPS_PORT}`
-    CA_URL=`https://${CA_AUTH}@${CA_HOST}:${CA_PORT}`
+  const CA_NAME = `${org}-ca`;
+  const CA_DIR = `${base}/build/cas/${CA_NAME}`;
+  const CA_AUTH = `${org}admin:${org}pw`;
+  const CA_HOST = `${CA_NAME}.${DOMAIN}`;
+  const CA_URL = `https://${CA_AUTH}@${CA_HOST}:${NGINX_HTTPS_PORT}`;
 
-    const cmd = `${caClientPath} enroll \
-        --url ${CA_URL} \
-        --tls.certfiles ${CA_DIR}/tlsca-cert.pem 
-    `;
+  // const mspDir = `${ORG_ADMIN_DIR}/msp`;
+  // const tlsDir = `${ORG_ADMIN_DIR}/tls`;
 
-    try {
-      console.log("Enrolling admin...");
-
-      const { stdout } = await execAsync(cmd);
-      console.log(stdout);
-
-      const sanitizedDomain = DOMAIN.replace(/\./g, '-');
-      const CA_CERT_NAME = `${CA_NAME}-${sanitizedDomain}-${CA_PORT}.pem`;
-      const orgAdDir = `${ORG_ADMIN_DIR}/msp`;
-      await createMspConfigYaml(CA_NAME, CA_CERT_NAME, orgAdDir);
+  // fs.mkdirSync(tlsDir, { recursive: true });
 
 
-    } catch (err) {
-      console.error("Registraion failed");
-      console.error(err.stderr || err);
-      // throw err;
-    };
-  };
+  // MSP enrollment
+  const {stdout, stderr} = await execAsync(
+    `${caClientPath} enroll \
+      --url ${CA_URL} \
+      --tls.certfiles ${CA_DIR}/tlsca-cert.pem`,
+    { env: { ...process.env, FABRIC_CA_CLIENT_HOME: ORG_ADMIN_DIR } }
+  );
+
+  console.log("MSP Output Error: ", stderr);
+  console.log("MSP Output result: ", stdout);
+
+  const CA_CERT_NAME = `${CA_NAME}-${DOMAIN.replace(/\./g, "-")}-${NGINX_HTTPS_PORT}.pem`;
+  await createMspConfigYaml(CA_NAME, CA_CERT_NAME, `${ORG_ADMIN_DIR}/msp`);
+
+  try {
+    normalizeKey(`${ORG_ADMIN_DIR}/msp/keystore`);
+    console.log(`✓ Normalized keys for ${org}`);
+  } catch (err) {
+    console.error(`✗ Failed to normalize keys for ${org}:`, err.message);
+    throw err;
+  }
+}
+
 };
+
+
+const normalizeKey = (dir) => {
+  if (!fs.existsSync(dir)) {
+    console.log(`  [normalizeKey] Directory does not exist: ${dir}`);
+    return;
+  }
+
+  const files = fs.readdirSync(dir);
+  console.log(`  [normalizeKey] Files in ${dir}:`, files);
+  
+  const sk = files.find(f => f.endsWith("_sk"));
+  
+  if (sk) {
+    console.log(`  [normalizeKey] Found _sk file: ${sk}`);
+    // If we have an _sk file, it's the fresh one from the latest enrollment
+    // Remove the old key.pem if it exists and rename _sk to key.pem
+    const keyPemPath = `${dir}/key.pem`;
+    const skPath = `${dir}/${sk}`;
+    
+    if (fs.existsSync(keyPemPath)) {
+      console.log(`  [normalizeKey] Removing old key.pem`);
+      fs.unlinkSync(keyPemPath);
+    }
+    console.log(`  [normalizeKey] Renaming ${sk} to key.pem`);
+    fs.renameSync(skPath, keyPemPath);
+  } else if (!files.includes("key.pem")) {
+    throw new Error(`No private key found in ${dir}`);
+  } else {
+    console.log(`  [normalizeKey] No _sk file found, key.pem exists`);
+  }
+}
 
 async function createMspConfigYaml(caName, caCertName, mspDir) {
   const configPath = path.join(mspDir, "config.yaml");
@@ -1860,121 +1942,6 @@ async function createMspConfigYaml(caName, caCertName, mspDir) {
   fs.writeFileSync(configPath, content, "utf8");
 }
 
-// async function extractCASignAuth () {
-//   const base = process.cwd();
-//   const ns = [
-//       "org0",
-//       "org1",
-//       "org2",
-//   ];
-
-//   for(const namesapce of ns){
-//     const { DOMAIN, NGINX_HTTPS_PORT } = process.env;
-
-//     let type;
-//     let caName;
-//     let org;
-
-//     switch (namesapce) {
-
-//       case "org0":
-//          type = "orderer"
-//          caName = `${namesapce}-ca`;
-//          org=namesapce;
-
-//         const ORG_MSP_DIR0 =`${base}/build/channel-msp/${type}Organizations/${org}/msp`;
-//         await fs.mkdir(`${ORG_MSP_DIR0}/cacerts`, (err) =>{console.log(err.message)});
-//         await fs.mkdir(`${ORG_MSP_DIR0}/tlscacerts`, (err) =>{console.log(err.message)});
-//         // await fs.mkdir(`${ORG_MSP_DIR0}/cacerts`, (err) =>{console.log(err.message)}, { recursive: true });
-//         // await fs.mkdir(`${ORG_MSP_DIR0}/tlscacerts`, (err) =>{console.log(err.message)}, { recursive: true });
-
-//         //Extract the CA's signing authority from the CA/cainfo response
-
-//         const cmd = `
-//           curl -s \
-//             --cacert ${base}/build/cas/${caName}/tlsca-cert.pem \
-//             https://${caName}.${DOMAIN}:${NGINX_HTTPS_PORT}/cainfo \
-//             | jq -r .result.CAChain \
-//             | base64 -d \
-//             > ${ORG_MSP_DIR0}/cacerts/ca-signcert.pem
-//         `;
-
-//         try {
-//           const { stdout0, stderr0} = await execAsync(cmd);
-//           if (stderr0) console.error("stderr:", stderr0);
-//           console.log(stdout0);
-//         } catch (err) {
-//           console.error("First CMD Command failed:", err);
-//         };
-
-//       break;
-
-//       case "org1":
-//         type = "peer"
-//         caName = `${namesapce}-ca`
-//         org=namesapce;
-
-//         const ORG_MSP_DIR1=`${base}/build/channel-msp/${type}Organizations/${org}/msp`;
-//         await fs.mkdir(`${ORG_MSP_DIR1}/cacerts`, (err) =>{console.log(err)});
-//         await fs.mkdir(`${ORG_MSP_DIR1}/tlscacerts`, (err) =>{console.log(err)});
-//         // await fs.mkdir(`${ORG_MSP_DIR1}/cacerts`, (err) =>{console.log(err)}, { recursive: true });
-//         // await fs.mkdir(`${ORG_MSP_DIR1}/tlscacerts`, (err) =>{console.log(err)}, { recursive: true });
-
-
-//         //Extract the CA's signing authority from the CA/cainfo response
-//         const cmd1 = `
-//           curl -s \
-//             --cacert ${base}/build/cas/${caName}/tlsca-cert.pem \
-//             https://${caName}.${DOMAIN}:${NGINX_HTTPS_PORT}/cainfo \
-//             | jq -r .result.CAChain \
-//             | base64 -d \
-//             > ${ORG_MSP_DIR1}/cacerts/ca-signcert.pem
-//         `;
-
-//         try {
-//           const { stdout1, stderr1 } = await execAsync(cmd1);
-//           if (stderr1) console.error("stderr:", stderr1);
-//           console.log(stdout);
-//         } catch (err) {
-//           console.error("Command failed:", err.stderr);
-//         }
-
-//       break;
-
-//       case "org2":
-//         type = "peer"
-//         caName = `${namesapce}-ca`
-//         org=namesapce;
-
-//         const ORG_MSP_DIR2=`${base}/build/channel-msp/${type}Organizations/${org}/msp`;
-//         await fs.mkdir(`${ORG_MSP_DIR2}/cacerts`, (err) =>{console.log(err)});
-//         await fs.mkdir(`${ORG_MSP_DIR2}/tlscacerts`, (err) =>{console.log(err)});
-//         // await fs.mkdir(`${ORG_MSP_DIR2}/cacerts`, (err) =>{console.log(err)}, { recursive: true });
-//         // await fs.mkdir(`${ORG_MSP_DIR2}/tlscacerts`, (err) =>{console.log(err)}, { recursive: true });
-
-
-//         //Extract the CA's signing authority from the CA/cainfo response
-//         const cmd2 = `
-//           curl -s \
-//             --cacert ${base}/build/cas/${caName}/tlsca-cert.pem \
-//             https://${caName}.${DOMAIN}:${NGINX_HTTPS_PORT}/cainfo \
-//             | jq -r .result.CAChain \
-//             | base64 -d \
-//             > ${ORG_MSP_DIR2}/cacerts/ca-signcert.pem
-//         `;
-
-//         try {
-//           const { stdout2, stderr2 } = await execAsync(cmd2);
-//           if (stderr2) console.error("stderr:", stderr2);
-//           console.log(stdout2);
-//         } catch (err) {
-//           console.error("Command failed:", err.stderr);
-//         }
-
-//       break;
-//     };
-//   };
-// };
 
 async function extractCASignAuth () {
   const base = process.cwd();
@@ -1990,7 +1957,7 @@ async function extractCASignAuth () {
 
     //CREATE FULL DIRECTORY TREE
     await fsp.mkdir(`${ORG_MSP_DIR}/cacerts`, { recursive: true });
-    await fsp.mkdir(`${ORG_MSP_DIR}/tlscacerts`, { recursive: true });
+    // await fsp.mkdir(`${ORG_MSP_DIR}/tlscacerts`, { recursive: true });
 
     //Write files
     const cmd = `
@@ -2005,9 +1972,14 @@ async function extractCASignAuth () {
     try {
       await execAsync(cmd);
       console.log(`CA signing cert extracted for ${namespace}`);
+
+      // <-- COPY it into the Fabric CA folder here
+      await execAsync(`cp ${ORG_MSP_DIR}/cacerts/ca-signcert.pem ${base}/build/cas/${caName}/ca-cert.pem`);
+      console.log(`Copied CA signing cert to build/cas/${caName}/ca-cert.pem`);
+
     } catch (err) {
       console.error(`CA extraction failed for ${namespace}`, err);
-      throw err;
+      console.log(err);
     }
   }
 }
@@ -2028,16 +2000,17 @@ async function extractCASecreteCreateMspConfig () {
 
     const cmd = `
       kubectl -n ${namespace} get secret ${caName}-tls-cert -o json \
-        | jq -r '.data["tls.crt"]' \
+        | jq -r '.data["ca.crt"]' \
         | base64 -d \
         > ${ORG_MSP_DIR}/tlscacerts/tlsca-signcert.pem
     `;
     // const cmd = `
     //   kubectl -n ${namespace} get secret ${caName}-tls-cert -o json \
-    //     | jq -r .data.\"tls.crt\" \
+    //     | jq -r '.data["tls.crt"]' \
     //     | base64 -d \
     //     > ${ORG_MSP_DIR}/tlscacerts/tlsca-signcert.pem
     // `;
+  
 
     try {
       await execAsync(cmd);
@@ -2208,21 +2181,13 @@ const joinChannelOrderers = async () => {
         --config-block    ${TEMP_DIR}/genesis_block.pb
       `;
 
-      // const cmd = `${OSNADMIN} channel join \
-      //   --orderer-address ${org}-${ord}-admin.${DOMAIN}:${NGINX_HTTPS_PORT} \
-      //   --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${ord}/tls/signcerts/tls-cert.pem \
-      //   --client-cert     ${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp/signcerts/cert.pem \
-      //   --client-key      ${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp/keystore/key.pem \
-      //   --channelID       ${process.env.CHANNEL_NAME} \
-      //   --config-block    ${TEMP_DIR}/genesis_block.pb
-      // `;
-
       const { stdout, stderr } = await execAsync(cmd);
 
       if (stderr) console.error("stderr:", stderr);
       console.log("stdout:" ,stdout);
 
     } else if (ord === "orderer4" && process.env.ORDERER_TYPE === "bft") {
+      
       const cmd = `${OSNADMIN} channel join \
         --orderer-address ${org}-${ord}-admin.${DOMAIN}:${NGINX_HTTPS_PORT} \
         --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${ord}/tls/signcerts/tls-cert.pem \
@@ -2231,14 +2196,6 @@ const joinChannelOrderers = async () => {
         --channelID       ${process.env.CHANNEL_NAME} \
         --config-block    ${TEMP_DIR}/genesis_block.pb
       `;
-      // const cmd = `${OSNADMIN} channel join \
-      //   --orderer-address ${org}-${ord}-admin.${DOMAIN}:${NGINX_HTTPS_PORT} \
-      //   --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${ord}/tls/signcerts/tls-cert.pem \
-      //   --client-cert     ${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp/signcerts/cert.pem \
-      //   --client-key      ${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp/keystore/key.pem \
-      //   --channelID       ${process.env.CHANNEL_NAME} \
-      //   --config-block    ${TEMP_DIR}/genesis_block.pb
-      // `;
 
       const { stdout, stderr } = await execAsync(cmd);
 
@@ -2879,7 +2836,7 @@ const runSetup = async () => {
     await applyOrgPeerYaml()
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(2 * 60 * 1000);
 
     //moved to after setupOrgPeers
     console.log("STEP 21: Checking Org Peer Deployment...");
@@ -2995,5 +2952,6 @@ module.exports = {
     checkCADeployment,
     extractCASecreteCreateMspConfig,
     extractCASignAuth,
+    mountMSPConfig,
     runSetup
 };

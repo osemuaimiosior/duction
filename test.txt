@@ -1,3 +1,6 @@
+#Delete a cluster
+kind delete cluster --name duction
+
 kubectl apply -f kube/localStorageClass.yaml
 
 
