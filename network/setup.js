@@ -3,6 +3,7 @@ const {PatchUtils} = k8s;
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require("path");
+const os = require("os");
 const yaml = require('js-yaml');
 const axios = require('axios');
 const { getType, sleep } = require('./utils/helper');
@@ -419,129 +420,6 @@ async function waitForNginxIngress() {
   console.log(`Timeout: NGINX ingress controller pod did not become Ready within ${timeoutMs} minutes`);
 };
 
-// async function recreateConfigMap() {
-//   // 1. Read all files from folder
-
-//   const ns = [
-//     'org0',
-//     'org1',
-//     'org2'
-//   ];
-
-//   let _name;
-//   let namespace;
-//   let folderPath;
-
-//   for (let namesp of ns) {
-
-//     switch (namesp){
-//       case "org0":
-        
-//         _name = "org0-config";
-//         namespace = "org0";
-//         folderPath = "config/org0";
-
-//         const files0 = fs.readdirSync(folderPath);
-
-//         const data0 = {};
-//         for (let file of files0) {
-//           const fullPath = path.join(folderPath, file);
-//           if (fs.lstatSync(fullPath).isFile()) {
-//             data0[file] = fs.readFileSync(fullPath, "utf8");
-//           }
-//         }
-
-//         // 2. Delete old configmap if exists
-//         try {
-//           await k8sApi.deleteNamespacedConfigMap(_name, namespace);
-//           console.log(`Deleted existing ConfigMap: ${_name}`);
-//         } catch (err) {
-//           console.log("No existing ConfigMap or delete skipped");
-//         }
-
-//         // 3. Create new configmap
-//         const body0 = {
-//           metadata: {name: _name },
-//           data: data0,
-//         };
-
-//         await k8sApi.createNamespacedConfigMap(namespace, body0);
-//         console.log(`Created ConfigMap: ${_name}`);
-//       break;
-      
-//       case "org1":
-        
-//         _name = "org1-config";
-//         namespace = "org1";
-//         folderPath = "config/org1";
-
-//         const files1 = fs.readdirSync(folderPath);
-
-//         const data1 = {};
-//         for (let file of files1) {
-//           const fullPath = path.join(folderPath, file);
-//           if (fs.lstatSync(fullPath).isFile()) {
-//             data1[file] = fs.readFileSync(fullPath, "utf8");
-//           };
-//         }
-
-//         // 2. Delete old configmap if exists
-//         try {
-//           await k8sApi.deleteNamespacedConfigMap(_name, namespace);
-//           console.log(`Deleted existing ConfigMap: ${_name}`);
-//         } catch (err) {
-//           console.log("No existing ConfigMap or delete skipped");
-//         }
-
-//         // 3. Create new configmap
-//         const body1 = {
-//           metadata: {name: _name },
-//           data: data1,
-//         };
-
-//         await k8sApi.createNamespacedConfigMap(namespace, body1);
-//         console.log(`Created ConfigMap: ${_name}`);
-//       break;
-
-//       case "org2":
-        
-//         _name = "org2-config";
-//         namespace = "org2";
-//         folderPath = "config/org2";
-
-//         const files2 = fs.readdirSync(folderPath);
-
-//         const data2 = {};
-//         for (let file of files2) {
-//           const fullPath = path.join(folderPath, file);
-//           if (fs.lstatSync(fullPath).isFile()) {
-//             data2[file] = fs.readFileSync(fullPath, "utf8");
-//           }
-//         }
-
-//         // 2. Delete old configmap if exists
-//         try {
-//           await k8sApi.deleteNamespacedConfigMap(_name, namespace);
-//           console.log(`Deleted existing ConfigMap: ${_name}`);
-//         } catch (err) {
-//           console.log("No existing ConfigMap or delete skipped");
-//         }
-
-//         // 3. Create new configmap
-//         const body2 = {
-//           metadata: {name: _name },
-//           data: data2,
-//         };
-
-//         await k8sApi.createNamespacedConfigMap(namespace, body2);
-//         console.log(`Created ConfigMap: ${_name}`);
-//       break;
-//     }
-//   }
-
-  
-// };
-
 async function recreateConfigMap() {
   const orgs = [
     { name: "org0", namespace: "org0", folder: "config/org0" },
@@ -897,23 +775,28 @@ async function extractCACert(namespace, secretName, outputPath) {
 
     // Parse JSON
     const secret = JSON.parse(stdout);
+    // console.log("From extractCACert: ", secret.data);
 
     if (!secret.data || !secret.data["ca.crt"]) {
+    // if (!secret.data || !secret.data["tls.crt"]) {
       throw new Error("ca.crt not found in secret");
     }
 
     // Base64 decode
     const decoded = Buffer.from(secret.data["ca.crt"], "base64");
+    // const decoded = Buffer.from(secret.data["tls.crt"], "base64");
 
     // Write file
     // await fs.writeFile(outputPath, decoded);
-    await fs.writeFile(outputPath, decoded, (err) => {
-      if (err) {
-      console.log('Error writing file:', err);
-      } else {
-      console.log('File written successfully');
-      }
-    });
+    await fsp.writeFile(outputPath, decoded);
+
+    // await fs.writeFile(outputPath, decoded, (err) => {
+    //   if (err) {
+    //   console.log('Error writing file:', err);
+    //   } else {
+    //   console.log('File written successfully');
+    //   }
+    // });
 
     console.log(`Extracted CA cert → ${outputPath}`);
   } catch (err) {
@@ -921,12 +804,12 @@ async function extractCACert(namespace, secretName, outputPath) {
   }
 };
 
-const pathsToCheck = [
-      "/usr/local/bin/fabric-ca-client",
-      "/mnt/c/Users/HP/bin/fabric-ca-client"
-    ];
+// const pathsToCheck = [
+//       "/usr/local/bin/fabric-ca-client",
+//       "/mnt/c/Users/HP/bin/fabric-ca-client"
+//     ];
 
-let caClientPath = pathsToCheck.find(p => fs.existsSync(p));
+// let caClientPath = pathsToCheck.find(p => fs.existsSync(p));
 
 async function enrollOrgCA() {
   const base = process.cwd();
@@ -951,8 +834,13 @@ async function enrollOrgCA() {
     const tlsFile = `${base}/build/cas/${c}/tlsca-cert.pem`;
     const mspDir = `${base}/build/enrollments/${orgMap[c]}/users/${process.env.RCAADMIN_USER}/msp`;
 
-    if (!caClientPath) console.log("fabric-ca-client not found");
-    console.log("This is the caClientPath: ", caClientPath)
+    const caClientPath = path.join(base, "bin", "fabric-ca-client");
+
+    // Safety check
+    await execAsync(`chmod +x ${caClientPath}`);
+    
+    // if (!caClientPath) console.log("fabric-ca-client not found");
+    // console.log("This is the caClientPath: ", caClientPath)
 
     const cmd = `${caClientPath} enroll \
       --url ${url} \
@@ -985,8 +873,13 @@ async function registerOrderer() {
     const tlsCert = `${base}/build/cas/org0-ca/tlsca-cert.pem`;
     const adminMsp = `${base}/build/enrollments/org0/users/${RCAADMIN_USER}/msp`;
 
-     if (!caClientPath) console.log("fabric-ca-client not found");
-    // console.log("This is the caClientPath: ", caClientPath)
+    //  if (!caClientPath) console.log("fabric-ca-client not found");
+    // // console.log("This is the caClientPath: ", caClientPath)
+
+    const caClientPath = path.join(base, "bin", "fabric-ca-client");
+
+    // Safety check
+    await execAsync(`chmod +x ${caClientPath}`);
 
     const cmd = `${caClientPath} register \
         --id.name ${od} \
@@ -1003,7 +896,7 @@ async function registerOrderer() {
       console.log(`Registered ${od}`);
     } catch (err) {
       // Handle “already registered”
-      if (err.stderr?.includes("already registered") || err.code === 1) {
+      if (err.stderr?.includes("already registered")) {
         console.log(`${od} was already registered — continuing.`);
       }else{
         console.error("Registration failed: ", err.stderr);
@@ -1097,6 +990,11 @@ async function registerPeers() {
     const tlsCert = `${base}/build/cas/${caMap[peer]}/tlsca-cert.pem`;
     const adminMsp = `${base}/build/enrollments/${orga[peer]}/users/${RCAADMIN_USER}/msp`;
 
+    const caClientPath = path.join(base, "bin", "fabric-ca-client");
+
+    // Safety check
+    await execAsync(`chmod +x ${caClientPath}`);
+
     const cmd = `${caClientPath} register \
         --id.name ${peer} \
         --id.secret peerpw \
@@ -1111,7 +1009,7 @@ async function registerPeers() {
       console.log(`Registered ${peer}`);
     } catch (err) {
       // Handle “already registered”
-      if (err.stderr?.includes("already registered") || err.code === 1) {
+      if (err.stderr?.includes("already registered")) {
         console.log(`${peer} was already registered — continuing.`);
       } else{
         console.error("Registration failed: ", err);
@@ -1391,68 +1289,6 @@ async function setupOrgPeers() {
   await mountMSPConfig();
 };
 
-// const applyOrdererYaml = async () => {
-
-//   const orderers = ["org0-orderer1", "org0-orderer2", "org0-orderer3"];
-
-//       if(process.env.ORDERER_TYPE === "bft"){
-//           try {
-//           const namespace = "org0";
-//           const yamlPath = `kube/org0/org0-orderer4.yaml`;
-
-//           // 1. Read YAML file
-//           let yamlContent = fs.readFileSync(yamlPath, "utf8");
-
-//           // 2. Perform envsubst manually
-//           yamlContent = yamlContent.replace(/\$\{([^}]+)\}/g, (_, name) => {
-//             return process.env[name] || "";
-//           });
-
-//           // 3. Apply using kubectl via stdin (-f -)
-//           const { stdout, stderr } = await execAsync(
-//             `kubectl -n ${namespace} apply -f -`,
-//             { input: yamlContent }
-//           );
-
-//           console.log(stdout);
-//           if (stderr) console.log(stderr);
-
-//           console.log(`org0-orderer4.yaml applied successfully`);
-//         } catch (err) {
-//             console.log(`Failed to apply org0-orderer4.yaml: `, err);
-//             // throw err;
-//         }
-//       } 
-
-//       for (let orderer of orderers){
-//           try {
-//             const namespace = "org0";
-//             const yamlPath = `kube/org0/${orderer}.yaml`;
-
-//             // 1. Read YAML file
-//             let yamlContent = fs.readFileSync(yamlPath, "utf8");
-
-//             // 2. Perform envsubst manually
-//             yamlContent = yamlContent.replace(/\$\{([^}]+)\}/g, (_, name) => {
-//               return process.env[name] || "";
-//             });
-
-//             // 3. Apply using kubectl via stdin (-f -)
-//             const { stdout, stderr } = await execAsync(
-//               `kubectl -n ${namespace} apply -f -`,
-//               { input: yamlContent }
-//             );
-
-//             console.log(stdout);
-//             if (stderr) console.log(stderr);
-
-//             console.log(`${orderer}.yaml applied successfully`);
-//           } catch (err) {
-//               console.log(`Failed to apply ${orderer}.yaml: `, err);
-//               // throw err;
-//           };
-//       }; 
-//   };
 
 const applyCertificate = async (yamlPath, namespace) => {
   try{
@@ -1626,52 +1462,6 @@ const checkOrdererDeployment = async () => {
   return true;
 };
 
-// const applyOrgPeerYaml = async () => {
-
-//     const peers = [
-//       "org1-peer1",  
-//       "org1-peer2",
-//       "org2-peer1",
-//       "org2-peer2"
-//     ];
-
-//     const orga = {
-//       "org1-peer1": "org1", 
-//       "org1-peer2": "org1", 
-//       "org2-peer1": "org2",
-//       "org2-peer2": "org2"
-//     };
-  
-// for (let p of peers) {
-//   try {
-//       const namespace = orga[p];
-//       const yamlPath = `kube/${orga[p]}/${p}.yaml`;
-
-//       // 1. Read YAML file
-//       let yamlContent = fs.readFileSync(yamlPath, "utf8");
-
-//       // 2. Perform envsubst manually
-//       yamlContent = yamlContent.replace(/\$\{([^}]+)\}/g, (_, name) => {
-//         return process.env[name] || "";
-//       });
-
-//       // 3. Apply using kubectl via stdin (-f -)
-//       const { stdout, stderr } = await execAsync(
-//         `kubectl -n ${namespace} apply -f -`,
-//         { input: yamlContent }
-//       );
-
-//       console.log(stdout);
-//       if (stderr) console.log(stderr);
-
-//       console.log(`${p}.yaml applied successfully`);
-//     } catch (err) {
-//         console.error(`Failed to apply ${p}.yaml`);
-//         console.error(err);
-//         throw err;
-//     }
-//   };   
-// };
 
 const applyOrgPeerYaml = async () => {
 
@@ -1790,6 +1580,11 @@ const registerOrgAdmins = async () => {
 
   for (let org of orga){
 
+    const caClientPath = path.join(base, "bin", "fabric-ca-client");
+
+    // Safety check
+    await execAsync(`chmod +x ${caClientPath}`);
+    
     const cmd = `${caClientPath}  register \
       --id.name       ${org}admin \
       --id.secret     ${org}pw \
@@ -1808,7 +1603,7 @@ const registerOrgAdmins = async () => {
       console.log(stdout);
 
     } catch (err) {
-      if (err.stderr?.includes("already registered") || err.code === 1) {
+      if (err.stderr?.includes("already registered")) {
         console.log(`${org} was already registered — continuing.`);
       } else{
         console.error("Registration failed: ", err);
@@ -1854,6 +1649,11 @@ const enrollOrgAdmins = async () => {
 
   // fs.mkdirSync(tlsDir, { recursive: true });
 
+  const caClientPath = path.join(base, "bin", "fabric-ca-client");
+
+  // Safety check
+  await execAsync(`chmod +x ${caClientPath}`);
+
 
   // MSP enrollment
   const {stdout, stderr} = await execAsync(
@@ -1874,6 +1674,41 @@ const enrollOrgAdmins = async () => {
     console.log(`✓ Normalized keys for ${org}`);
   } catch (err) {
     console.error(`✗ Failed to normalize keys for ${org}:`, err.message);
+    throw err;
+  }
+
+  // TLS enrollment for osnadmin client certs
+  const tlsDir = `${ORG_ADMIN_DIR}/tls`;
+  fs.mkdirSync(tlsDir, { recursive: true });
+  
+  const tlsEnrollCmd = `${caClientPath} enroll \
+    --url ${CA_URL} \
+    --tls.certfiles ${CA_DIR}/tlsca-cert.pem \
+    --enrollment.profile tls \
+    --csr.hosts rcaadmin`;
+  
+  try {
+    const {stdout: tlsStdout, stderr: tlsStderr} = await execAsync(
+      tlsEnrollCmd,
+      { env: { ...process.env, FABRIC_CA_CLIENT_HOME: tlsDir } }
+    );
+    
+    console.log("TLS Enrollment Output Error: ", tlsStderr);
+    console.log("TLS Enrollment Output result: ", tlsStdout);
+    
+    // Normalize TLS keys and certs
+    try {
+      normalizeKey(`${tlsDir}/msp/keystore`);
+      console.log(`✓ Normalized TLS keys for ${org}`);
+      
+      normalizeCert(`${tlsDir}/msp/signcerts`);
+      console.log(`✓ Normalized TLS certs for ${org}`);
+    } catch (err) {
+      console.error(`✗ Failed to normalize TLS files for ${org}:`, err.message);
+      throw err;
+    }
+  } catch (err) {
+    console.error(`TLS enrollment failed for ${org}:`, err.stderr || err.message);
     throw err;
   }
 }
@@ -1912,6 +1747,36 @@ const normalizeKey = (dir) => {
   }
 }
 
+const normalizeCert = (dir) => {
+  if (!fs.existsSync(dir)) {
+    console.log(`  [normalizeCert] Directory does not exist: ${dir}`);
+    return;
+  }
+
+  const files = fs.readdirSync(dir);
+  console.log(`  [normalizeCert] Files in ${dir}:`, files);
+  
+  // Look for certificate files (typically named like hostname-cert.pem or similar)
+  const certFile = files.find(f => f.endsWith("-cert.pem") && f !== "ca-cert.pem");
+  
+  if (certFile) {
+    console.log(`  [normalizeCert] Found cert file: ${certFile}`);
+    const certPemPath = `${dir}/cert.pem`;
+    const originalPath = `${dir}/${certFile}`;
+    
+    if (fs.existsSync(certPemPath)) {
+      console.log(`  [normalizeCert] Removing old cert.pem`);
+      fs.unlinkSync(certPemPath);
+    }
+    console.log(`  [normalizeCert] Renaming ${certFile} to cert.pem`);
+    fs.renameSync(originalPath, certPemPath);
+  } else if (!files.includes("cert.pem")) {
+    throw new Error(`No certificate found in ${dir}`);
+  } else {
+    console.log(`  [normalizeCert] No cert file found, cert.pem exists`);
+  }
+}
+
 async function createMspConfigYaml(caName, caCertName, mspDir) {
   const configPath = path.join(mspDir, "config.yaml");
 
@@ -1941,7 +1806,6 @@ async function createMspConfigYaml(caName, caCertName, mspDir) {
 
   fs.writeFileSync(configPath, content, "utf8");
 }
-
 
 async function extractCASignAuth () {
   const base = process.cwd();
@@ -2175,8 +2039,8 @@ const joinChannelOrderers = async () => {
       const cmd = `${OSNADMIN} channel join \
         --orderer-address ${org}-${ord}-admin.${DOMAIN}:${NGINX_HTTPS_PORT} \
         --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${ord}/tls/signcerts/tls-cert.pem \
-        --client-cert     ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp/signcerts/cert.pem \
-        --client-key      ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp/keystore/key.pem \
+        --client-cert     ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/tls/msp/signcerts/cert.pem \
+        --client-key      ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/tls/msp/keystore/key.pem \
         --channelID       ${process.env.CHANNEL_NAME} \
         --config-block    ${TEMP_DIR}/genesis_block.pb
       `;
@@ -2191,8 +2055,8 @@ const joinChannelOrderers = async () => {
       const cmd = `${OSNADMIN} channel join \
         --orderer-address ${org}-${ord}-admin.${DOMAIN}:${NGINX_HTTPS_PORT} \
         --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${ord}/tls/signcerts/tls-cert.pem \
-        --client-cert     ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp/signcerts/cert.pem \
-        --client-key      ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp/keystore/key.pem \
+        --client-cert     ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/tls/msp/signcerts/cert.pem \
+        --client-key      ${TEMP_DIR}/enrollments/${org}/users/rcaadmin/tls/msp/keystore/key.pem \
         --channelID       ${process.env.CHANNEL_NAME} \
         --config-block    ${TEMP_DIR}/genesis_block.pb
       `;
@@ -2212,30 +2076,23 @@ const joinChannelPeers = async () => {
   const base = process.cwd();
   const TEMP_DIR = `${base}/build`;
   
-  const peersOrgMap = {
-    "peer1": "org1",
-    "peer2": "org1",
-    "peer1": "org2",
-    "peer2": "org2",
-  };
+  const peersOrgMap = [
+    { peer: "peer1", org: "org1" },
+    { peer: "peer2", org: "org1" },
+    { peer: "peer1", org: "org2" },
+    { peer: "peer2", org: "org2" },
+  ];
 
   const PEER = path.join(base, "bin", "peer");
   await execAsync(`chmod +x ${PEER}`);
 
-  for (let peer of peersOrgMap) {
+  for (let { peer, org } of peersOrgMap) {
     const cmd =`
-      export FABRIC_CFG_PATH=${base}/config/${peersOrgMap[peer]}
-      export CORE_PEER_ADDRESS=${peersOrgMap[peer]}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${peersOrgMap[peer]}/users/${peersOrgMap[peer]}admin/msp
-      export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${peersOrgMap[peer]}/msp/tlscacerts/tlsca-signcert.pem
-    `;
-
-    const { stdout, stderr } = await execAsync(cmd);
-
-    if (stderr) console.error("stderr:", stderr);
-    console.log(stdout);
-
-    const cmd0 =` ${PEER} channel join \
+      export FABRIC_CFG_PATH=${base}/config/${org}
+      export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
+      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
+      export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
+      ${PEER} channel join \
         --blockpath   ${TEMP_DIR}/genesis_block.pb \
         --orderer     org0-orderer1.${DOMAIN} \
         --connTimeout ${ORDERER_TIMEOUT} \
@@ -2243,26 +2100,19 @@ const joinChannelPeers = async () => {
         --cafile      ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem
     `;
 
-    const { stdout0, stderr0 } = await execAsync(cmd0);
+    const { stdout, stderr } = await execAsync(cmd);
 
-    if (stderr0) console.error("stderr:", stderr0);
-    console.log(stdout0);
+    if (stderr) console.error("stderr:", stderr);
+    console.log(stdout);
   };
 };
 
 const deployChaincode = async (ccPath) => {
-  const {cc_name, cc_label} = process.env.CC_NAME;
-  // let cc_folder; 
- 
-
-  // fs.realpath(ccPath, (err, resolvedPath) => {
-  //   if (err) console.log(err);
-  //   cc_folder = resolvedPath;
-  //   console.log(resolvedPath);
-  // });
-
-  const cc_folder = fs.realpathSync(ccPath);
-  const temp_folder = fs.mkdtemp();
+  const cc_name = process.env.CC_NAME || "ductioncc";
+  const cc_label = process.env.CC_LABEL || "ductioncclabel";
+  
+  const cc_folder = fs.realpathSync(path.join(__dirname, ccPath));
+  const temp_folder = await fsp.mkdtemp(path.join(os.tmpdir(), 'cc-'));
   const cc_package=`${temp_folder}/${cc_name}.tgz`
 
   const runChaincodeSetup = async () => {
@@ -2296,7 +2146,7 @@ const q = {
  */
 
 const invokeChaincode = async (q) => {
-  const cc_name = process.env.CC_NAME || "ductionCC";
+  const cc_name = process.env.CC_NAME || "ductioncc";
   const org = "org1";
   const peer = "peer1";
   const CHANNEL_NAME = process.env.CHANNEL_NAME || "duction_channel";
@@ -2310,7 +2160,7 @@ const invokeChaincode = async (q) => {
   const cmd =`
       export FABRIC_CFG_PATH=${base}/config/${org}
       export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp
+      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
       export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
     `;
 
@@ -2360,7 +2210,7 @@ const queryChaincode = async (q) => {
   const cmd =`
       export FABRIC_CFG_PATH=${base}/config/${org}
       export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp
+      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
       export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
     `;
 
@@ -2394,23 +2244,69 @@ async function substituteEnvVariables(input, env) {
   });
 }
 
-async function prepareChaincodeImage(cc_folder, cc_name){
-  //build_chaincode_image
+// async function prepareChaincodeImage(cc_folder, cc_name){
+//   //build_chaincode_image
 
-  const cmd = `docker build ${process.env.CONTAINER_NAMESPACE} -t ${cc_name} ${cc_folder}`;
+//   const cmd0 = `docker build -t ${cc_name}:latest ${cc_folder}`;
+//   const cmd1 = `docker tag ${cc_name}:latest ${GHCR_IO}/${cc_name}:latest`;
+//   const cmd2 = `docker push ${GHCR_IO}/${cc_name}:latest`;
 
-  const { stdout, stderr } = await execAsync(cmd);
 
-  if (stderr) console.error("stderr:", stderr);
-  return stdout;
-};
+//   const { stdout0, stderr0 } = await execAsync(cmd0);
+//   const { stdout1, stderr1 } = await execAsync(cmd1);
+//   const { stdout2, stderr2 } = await execAsync(cmd2);
+
+//    process.env.CHAINCODE_IMAGE = `${GHCR_IO}/${cc_name}:latest`;
+
+
+//   if (stderr0) console.error("stderr:", stderr0);
+//   return {stdout0, stdout1, stdout2};
+// };
+
+async function prepareChaincodeImage(cc_folder, cc_name) {
+  if (!process.env.GHCR_IO) {
+    console.log("GHCR_IO env var not set (e.g. ghcr.io/osemuaimiosior)");
+  }
+
+  const imageLocal = `${cc_name}:latest`;
+  const imageRemote = `${process.env.GHCR_IO}/${cc_name}:latest`; //you can use docker herer too
+
+  console.log("Building chaincode image...");
+  const { stdout: bOut, stderr: bErr } = await execAsync(
+    `docker build -t ${imageLocal} ${cc_folder}`
+  );
+  if (bErr) console.error(bErr);
+
+  console.log("Tagging image...");
+  const { stderr: tErr } = await execAsync(
+    `docker tag ${imageLocal} ${imageRemote}`
+  );
+  if (tErr) console.error(tErr);
+
+  console.log("Pushing image to registry...");
+  const { stdout: pOut, stderr: pErr } = await execAsync(
+    `docker push ${imageRemote}`
+  );
+  if (pErr) console.error(pErr);
+
+  process.env.CHAINCODE_IMAGE = imageRemote;
+
+  console.log("Chaincode image ready:", imageRemote);
+
+  return {
+    image: imageRemote,
+    build: bOut,
+    push: pOut
+  };
+}
+
 
 async function packageChaincode(cc_name, cc_label, cc_package){
 
   const cc_folder = path.dirname(cc_package);
   const archive_name = path.basename(cc_package);
 
-  fs.mkdir(cc_folder, { recursive: true });
+  await fsp.mkdir(cc_folder, { recursive: true });
 
   console.log(`Packaging ccaas chaincode ${cc_label}`);
 
@@ -2423,17 +2319,17 @@ async function packageChaincode(cc_name, cc_label, cc_package){
   const codeTarGz = path.join(cc_folder, "code.tar.gz");
 
   // Write connection.json
-  await fs.writeJson(connectionJson, {
+  await fsp.writeFile(connectionJson, JSON.stringify({
       address: cc_address,
       dial_timeout: "10s",
       tls_required: false
-  }, { spaces: 2 });
+  }, null, 2));
 
   // Write metadata.json
-  await fs.writeJson(metadataJson, {
+  await fsp.writeFile(metadataJson, JSON.stringify({
       type: "ccaas",
       label: cc_label
-  }, { spaces: 2 });
+  }, null, 2));
 
   // Create code.tar.gz (contains only connection.json)
   await tar.create(
@@ -2456,52 +2352,117 @@ async function packageChaincode(cc_name, cc_label, cc_package){
   );
 
   // Cleanup
-  await fs.remove(codeTarGz);
+  // await fs.rm(codeTarGz);
+
+  // Cleanup (Node 22 safe)
+  await fsp.rm(codeTarGz, { force: true });
 
   console.log("Chaincode package created:", cc_package);
 };
 
-async function setChaincodeId(cc_package){
+
+async function setChaincodeId(cc_package) {
   const absPath = path.resolve(cc_package);
 
-    // 1. Compute SHA-256 hash
-    const hash = crypto.createHash("sha256");
-    const fileBuffer = await fs.readFile(absPath);
-    hash.update(fileBuffer);
-    const ccSha256 = hash.digest("hex");
+  // 1. Compute SHA-256
+  const fileBuffer = await fsp.readFile(absPath);
+  const ccSha256 = crypto
+    .createHash("sha256")
+    .update(fileBuffer)
+    .digest("hex");
 
-    // 2. Read metadata.json from inside the .tar.gz without extracting to disk
-    let metadataJsonContent = "";
-    await tar.t({
-        file: absPath,
-        onReadEntry: entry => {
-            if (entry.path === "metadata.json") {
-                entry.on("data", chunk => {
-                    metadataJsonContent += chunk.toString();
-                });
-            }
-        }
+  // 2. Read metadata.json from tar.gz
+  let metadataJsonContent = null;
+
+  await tar.t({
+    file: absPath,
+    onReadEntry: entry => {
+      if (entry.path === "metadata.json") {
+        return new Promise((resolve, reject) => {
+          let data = "";
+
+          entry.on("data", chunk => {
+            data += chunk.toString();
+          });
+
+          entry.on("end", () => {
+            metadataJsonContent = data;
+            resolve();
+          });
+
+          entry.on("error", reject);
+        });
+      }
+    }
+  });
+
+  if (!metadataJsonContent) {
+    console.log("metadata.json not found inside chaincode package");
+  }
+
+  const { label } = JSON.parse(metadataJsonContent);
+
+  // 3. Build CHAINCODE_ID
+  process.env.CHAINCODE_ID = `${label}:${ccSha256}`;
+
+  return {
+    ccSha256,
+    label
+  };
+};
+
+
+async function kubectlApply(namespace, yaml) {
+  return new Promise((resolve, reject) => {
+    const kubectl = spawn("kubectl", ["-n", namespace, "apply", "-f", "-"], {
+      stdio: ["pipe", "pipe", "pipe"]
     });
 
-    if (!metadataJsonContent) {
-        console.log("metadata.json not found inside package");
-    }
+    let stderr = "";
+    let stdout = "";
 
-    const { label } = JSON.parse(metadataJsonContent);
+    kubectl.stdout.on("data", d => stdout += d);
+    kubectl.stderr.on("data", d => stderr += d);
 
-    // 3. Build CHAINCODE_ID
-     process.env.CHAINCODE_ID = `${label}:${ccSha256}`;
+    kubectl.on("close", code => {
+      if (code !== 0) {
+        reject(new Error(stderr));
+      } else {
+        resolve(stdout);
+      }
+    });
 
-    return {
-        ccSha256,
-        label
-    };
+    kubectl.stdin.write(yaml);
+    kubectl.stdin.end();
+  });
+};
+
+async function applyRegistrySecret(){
+
+  const organisations = ["org0", "org1", "org2"];
+  const {GITHUB_TOKEN, GHCR_SECRET_NAME} = process.env;
+
+  for (let org of organisations){
+      
+      const cmd = `kubectl -n ${org} create secret docker-registry ${GHCR_SECRET_NAME} \
+        --docker-server=${GITHUB_SERVER} \
+        --docker-username=${GITHUB_USER_NAME} \
+        --docker-password=${GITHUB_TOKEN} \
+        --docker-email=${GITHUB_EMAIL}
+      `
+    const {stdout, stderr} = await execAsync(cmd);
+
+    if(stderr) console.log(stderr)
+
+    return stdout;
+  }
+  
 };
 
 async function launchChaincodeService(cc_name){
   const org="org1";
   const peers = ["peer1", "peer2"];
-  const {CHAINCODE_IMAGE, CHAINCODE_ID, ORG1_NS} = process.env;
+  const {CHAINCODE_IMAGE, CHAINCODE_ID, ORG1_NS, GHCR_SECRET_NAME} = process.env;
 
   console.log(`Launching chaincode container ${CHAINCODE_IMAGE}`)
 
@@ -2510,13 +2471,14 @@ async function launchChaincodeService(cc_name){
       const templatePath = `kube/${org}/${org}-cc-template.yaml`;
 
       // Read the template file
-      let content = await fs.readFile(templatePath, "utf8");
+      let content = await fsp.readFile(templatePath, "utf8");
 
       // Replace placeholders
       content = content
         .replace(/{{CHAINCODE_NAME}}/g, cc_name)
         .replace(/{{CHAINCODE_ID}}/g, CHAINCODE_ID)
         .replace(/{{CHAINCODE_IMAGE}}/g, CHAINCODE_IMAGE)
+        .replace(/{{GHCR_SECRET_NAME}}/g, GHCR_SECRET_NAME)
         .replace(/{{PEER_NAME}}/g, peer);
 
       console.log("Applying chaincode deployment to Kubernetes...");
@@ -2524,7 +2486,8 @@ async function launchChaincodeService(cc_name){
       // Apply YAML using kubectl stdin
       const applyCmd = `kubectl -n ${ORG1_NS} apply -f -`;
 
-      await execAsync(applyCmd, { input: content });
+      // await execAsync(applyCmd, { input: content });
+      await kubectlApply(ORG1_NS, content);
 
       console.log("YAML applied. Checking rollout status...");
 
@@ -2557,7 +2520,7 @@ async function activateChaincode(cc_name, cc_package){
       const cmd =`
         export FABRIC_CFG_PATH=${base}/config/${org}
         export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp
+        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
         export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
       `;
 
@@ -2605,7 +2568,7 @@ async function approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME,
   const cmd =`
         export FABRIC_CFG_PATH=${base}/config/${org}
         export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp
+        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
         export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
       `;
 
@@ -2645,7 +2608,7 @@ async function commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, 
   const cmd =`
         export FABRIC_CFG_PATH=${base}/config/${org}
         export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/${org}admin/msp
+        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
         export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
       `;
 
@@ -2887,9 +2850,15 @@ const runSetup = async () => {
 
     // await sleep(1 * 60 * 1000);
 
-    console.log("STEP 29: Deploying Chaincode...");
+    console.log("STEP 29a: Apply Registry Secret...");
+    await applyRegistrySecret()
+    console.log("Done\n");
+
+    await sleep(1 * 60 * 1000);
+
+    console.log("STEP 29b: Deploying Chaincode...");
     await deployChaincode("../ccaas/chaincode-go")
-    console.log("DOne\n");
+    console.log("Done\n");
 
     // await sleep(1 * 60 * 1000);
 
@@ -2953,5 +2922,6 @@ module.exports = {
     extractCASecreteCreateMspConfig,
     extractCASignAuth,
     mountMSPConfig,
+    applyRegistrySecret,
     runSetup
 };

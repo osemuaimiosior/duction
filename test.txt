@@ -1,3 +1,6 @@
+#Clean start
+rm -rf build/ 2>/dev/null || true && kind delete cluster --name duction && kind create cluster --name duction --config kube/kind-config.yaml && npm start
+
 #Delete a cluster
 kind delete cluster --name duction
 

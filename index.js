@@ -3,6 +3,7 @@
 // const cron = require('node-cron');
 const express = require('express');
 const app = express();
+const path = require('path');
 const {
     createNS, 
     pvcApply, 
@@ -60,7 +61,27 @@ app.get("/health", (req, res) => {
   res.status(200).json(healthInfo);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+// Serve static files
+// app.use(express.static(path.join(__dirname)));
+
+// Routes
+app.get(['/', '/index', '/index.html'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get(['/login', '/login.html'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+app.get(['/register', '/register.html'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'register.html'));
+});
+
+app.get(['/dashboard', '/dashboard.html'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
+app.listen(PORT,  () => {
   console.log(`Server is running on port ${PORT}`);
 });
 

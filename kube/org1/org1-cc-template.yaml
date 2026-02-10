@@ -18,6 +18,8 @@ spec:
       labels:
         app: org1{{PEER_NAME}}-ccaas-{{CHAINCODE_NAME}}
     spec:
+      imagePullSecrets:
+        - name: {{GHCR_SECRET_NAME}}
       containers:
         - name: main
           image: {{CHAINCODE_IMAGE}}
