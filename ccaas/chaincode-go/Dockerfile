@@ -1,43 +1,20 @@
-# Build stage
+# Builder stage
 FROM golang:1.23.0-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache git
 
-# Install build dependencies
-RUN apk add --no-cache git gcc musl-dev
-
-# Set working directory
-WORKDIR /chaincode
-
-# Copy go.mod and go.sum
 COPY go.mod go.sum ./
+RUN go mod download
 
-# Download dependencies with retry logic
-RUN for i in {1..3}; do \
-      go mod download && break || \
-      ([ $i -lt 3 ] && echo "Retry $i/3, retrying in 5s..." && sleep 5); \
-    done
-
-# Copy the source code
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main main.go 
 
-# Build the chaincode
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o chaincode .
-# RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o chaincode ./chaincode
-
-
-# Runtime stage
-FROM alpine:latest
-
-# Install ca-certificates for TLS
+# Final stage
+FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
+WORKDIR /app
 
-# Set working directory
-WORKDIR /root/
+# Copy the binary as 'main'
+COPY --from=builder /app/main .
 
-# Copy the built binary from builder
-COPY --from=builder /chaincode/chaincode .
-
-# Expose the chaincode server port
-EXPOSE 9999
-
-# Set the entrypoint
-CMD ["./chaincode"]
+CMD ["./main"]

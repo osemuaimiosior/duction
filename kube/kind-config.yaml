@@ -15,3 +15,15 @@ nodes:
       - containerPort: 443
         hostPort: 443
         protocol: TCP
+#networking:
+#  kubeProxyMode: "ipvs"
+
+# Create a cluster with the local registry enabled in containerd.
+# KIND v0.27.0+ uses containerd 2.x, which requires config_path mode
+# instead of the deprecated registry.mirrors configuration.
+# See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
+# See: https://github.com/containerd/containerd/blob/main/docs/hosts.md
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"

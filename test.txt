@@ -1,3 +1,18 @@
+#Clean up and start all over again
+
+docker rm -f $(docker ps -aq) 2>/dev/null
+docker rmi -f ghcr.io/osemuaimiosior/ductioncc:latest
+docker system prune -a --volumes -f
+
+docker build --no-cache -t ghcr.io/osemuaimiosior/ductioncc:latest .
+docker push ghcr.io/osemuaimiosior/ductioncc:latest
+
+docker run --rm -it ghcr.io/osemuaimiosior/ductioncc:latest sh
+ls -la /app
+
+
+
+
 #Clean start
 rm -rf build/ 2>/dev/null || true && kind delete cluster --name duction && kind create cluster --name duction --config kube/kind-config.yaml && npm start
 

@@ -25,6 +25,101 @@ const execAsync = util.promisify(exec);
 
 //<=============== Network setup starts ========================>//
 
+const CLUSTER_NAME = process.env.CLUSTER_NAME;   // change if needed
+const regName = "kind-registry";     // your registry container name
+const regPort = 5000;                // registry port
+const LOCAL_REGISTRY_INTERFACE = "127.0.0.1"; // or 0.0.0.0
+
+function shOutput(cmd) {
+  return execSync(cmd, { encoding: "utf-8" }).trim();
+}
+
+function sh(cmd) {
+  console.log(`> ${cmd}`);
+  execSync(cmd, { stdio: "inherit" });
+}
+
+const preStartUpConfig = async () => {
+  // 1. Get kind node container names
+  const nodes = execSync(
+    `kind get nodes --name ${CLUSTER_NAME}`,
+    { encoding: "utf-8" }
+  )
+    .trim()
+    .split("\n");
+
+  if (!nodes.length) {
+    throw new Error("No kind nodes found");
+  }
+
+  // 2. Configure containerd registry on each node
+  for (const node of nodes) {
+    // create directory
+    sh(`docker exec ${node} mkdir -p /etc/containerd/certs.d/localhost:${regPort}`);
+
+    // write hosts.toml
+    const toml = `
+      server = "http://localhost:${regPort}"
+
+      [host."http://${regName}:${regPort}"]
+        capabilities = ["pull", "resolve", "push"]
+    `.trim();
+
+    sh(
+      `docker exec ${node} sh -c 'cat > /etc/containerd/certs.d/localhost:${regPort}/hosts.toml <<EOF
+        ${toml}
+        EOF'`
+    );
+
+    console.log("Registry configured for all kind nodes");
+    console.log("Restarting containerd");
+
+    sh(`docker exec ${node} systemctl restart containerd || true`);
+}
+
+};
+
+
+const launchDockerRegistry = async () => {
+  console.log(
+    `Launching container registry "${regName}" at localhost:${regPort}`
+  );
+
+  // 1. Check if registry container is running
+  let running = "";
+  try {
+    running = shOutput(`docker inspect -f '{{.State.Running}}' ${regName}`);
+  } catch {
+    running = "false";
+  }
+
+  // 2. Start registry if not running
+  if (running !== "true") {
+    sh(`docker run \
+        --detach \
+        --restart always \
+        --name ${regName} \
+        --publish ${LOCAL_REGISTRY_INTERFACE}:${regPort}:5000 \
+        registry:2
+          `.trim());
+  }
+
+  // 3. Connect registry to kind network
+  // (ignore error if already connected)
+  try {
+    sh(`docker network connect kind ${regName}`);
+  } catch {
+    console.log("Registry already connected to kind network");
+  }
+
+    
+  const filePath = path.join(__dirname, "..", "kube", "launch-docker-registry.yaml");
+
+  sh(`kubectl apply -f ${filePath}`);
+
+  console.log("Local Docker registry ready");
+}
+
 const initIngress = async () => {
     try {
         // Load YAML
@@ -262,8 +357,6 @@ const pvcApplyOrg = async () => {
 
   await createOrgNS();
   await sleep(1 * 60 * 1000);
-
-
 
   for (let file of files) {
     const docs = yaml.loadAll(fs.readFileSync(file, "utf8"));
@@ -778,13 +871,11 @@ async function extractCACert(namespace, secretName, outputPath) {
     // console.log("From extractCACert: ", secret.data);
 
     if (!secret.data || !secret.data["ca.crt"]) {
-    // if (!secret.data || !secret.data["tls.crt"]) {
       throw new Error("ca.crt not found in secret");
     }
 
     // Base64 decode
     const decoded = Buffer.from(secret.data["ca.crt"], "base64");
-    // const decoded = Buffer.from(secret.data["tls.crt"], "base64");
 
     // Write file
     // await fs.writeFile(outputPath, decoded);
@@ -828,9 +919,7 @@ async function enrollOrgCA() {
 
   for (let c of ca) {
 
-    const url = `https://${process.env.RCAADMIN_USER}:${process.env.RCAADMIN_PASS}` +
-                `@${c}.${process.env.DOMAIN}:${process.env.NGINX_HTTPS_PORT}`;
-
+    const url = `https://${process.env.RCAADMIN_USER}:${process.env.RCAADMIN_PASS}@${c}.${process.env.DOMAIN}:${process.env.NGINX_HTTPS_PORT}`;
     const tlsFile = `${base}/build/cas/${c}/tlsca-cert.pem`;
     const mspDir = `${base}/build/enrollments/${orgMap[c]}/users/${process.env.RCAADMIN_USER}/msp`;
 
@@ -2437,27 +2526,63 @@ async function kubectlApply(namespace, yaml) {
   });
 };
 
-async function applyRegistrySecret(){
+// async function applyRegistrySecret(){
 
-  const organisations = ["org0", "org1", "org2"];
-  const {GITHUB_TOKEN, GHCR_SECRET_NAME} = process.env;
+//   const organisations = ["org0", "org1", "org2"];
+//   const {GITHUB_TOKEN, GHCR_SECRET_NAME, GITHUB_USER_NAME, GITHUB_SERVER, GITHUB_EMAIL} = process.env;
 
-  for (let org of organisations){
+//   for (let org of organisations){
       
-      const cmd = `kubectl -n ${org} create secret docker-registry ${GHCR_SECRET_NAME} \
-        --docker-server=${GITHUB_SERVER} \
-        --docker-username=${GITHUB_USER_NAME} \
-        --docker-password=${GITHUB_TOKEN} \
-        --docker-email=${GITHUB_EMAIL}
-      `
-    const {stdout, stderr} = await execAsync(cmd);
+//       const cmd = `kubectl create secret docker-registry ${GHCR_SECRET_NAME} \
+//         --namespace ${org} \
+//         --docker-server=${GITHUB_SERVER} \
+//         --docker-username=${GITHUB_USER_NAME} \
+//         --docker-password=${GITHUB_TOKEN} \
+//         --docker-email=${GITHUB_EMAIL}
+//       `
+//     const {stdout, stderr} = await execAsync(cmd);
 
-    if(stderr) console.log(stderr)
+//     if(stderr) console.log(stderr)
+//     if(stdout) console.log(stdout)
 
-    return stdout;
-  }
+//     return stdout;
+//   }
   
-};
+// };
+
+async function applyRegistrySecret() {
+  const organisations = ["org0", "org1", "org2"];
+  const {
+    GITHUB_TOKEN,
+    GHCR_SECRET_NAME,
+    GITHUB_USER_NAME,
+    GITHUB_SERVER,
+    GITHUB_EMAIL
+  } = process.env;
+
+  for (let org of organisations) {
+
+    const cmd = `
+      kubectl create secret docker-registry ${GHCR_SECRET_NAME} \
+      --namespace=${org} \
+      --docker-server=${GITHUB_SERVER} \
+      --docker-username=${GITHUB_USER_NAME} \
+      --docker-password=${GITHUB_TOKEN} \
+      --docker-email=${GITHUB_EMAIL} \
+      --dry-run=client -o yaml | kubectl apply -f -
+    `;
+
+    try {
+      const { stdout, stderr } = await execAsync(cmd);
+
+      if (stderr) console.log(stderr);
+      if (stdout) console.log(`Secret applied in ${org}`);
+    } catch (err) {
+      console.error(`Failed in ${org}:`, err.stderr || err);
+    }
+  }
+}
+
 
 async function launchChaincodeService(cc_name){
   const org="org1";
@@ -2505,8 +2630,7 @@ async function launchChaincodeService(cc_name){
 async function activateChaincode(cc_name, cc_package){
   const org="org1";
   const peers = ["peer1", "peer2"];
-  const {CHAINCODE_IMAGE, DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT, 
-    CHAINCODE_ID, ORG1_NS, CHANNEL_NAME} = process.env;
+  const {CHAINCODE_IMAGE, DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT, CHAINCODE_ID, ORG1_NS, CHANNEL_NAME} = process.env;
 
   await setChaincodeId(cc_package);
 
@@ -2529,9 +2653,7 @@ async function activateChaincode(cc_name, cc_package){
       if (stderr) console.error("stderr:", stderr);
       console.log(stdout);
 
-      const cmd0 =`
-        peer lifecycle chaincode install ${cc_package} ${INSTALL_EXTRA_ARGS}
-      `;
+      const cmd0 =` peer lifecycle chaincode install ${cc_package} ${process.env.INSTALL_EXTRA_ARGS}`;
 
       const { stdout0, stderr0 } = await execAsync(cmd0);
 
@@ -2588,7 +2710,7 @@ async function approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME,
       --orderer       org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
       --connTimeout   ${ORDERER_TIMEOUT} \
       --tls --cafile  ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
-      ${APPROVE_EXTRA_ARGS}
+      ${process.env.APPROVE_EXTRA_ARGS}
   `;
 
       const { stdout0, stderr0 } = await execAsync(cmd0);
@@ -2627,7 +2749,7 @@ async function commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, 
       --orderer       org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
       --connTimeout   ${ORDERER_TIMEOUT} \
       --tls --cafile  ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
-      ${COMMIT_EXTRA_ARGS}
+      ${process.env.COMMIT_EXTRA_ARGS}
   `;
 
       const { stdout0, stderr0 } = await execAsync(cmd0);
@@ -2639,7 +2761,23 @@ async function commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, 
 const runSetup = async () => {
 
   try {
-    console.log("STEP 1: Creating namespace...");
+    console.log("STEP 1a: Pre StartUp Config...");
+    await preStartUpConfig();
+    console.log("Created\n");
+
+    await sleep(2 * 60 * 1000);
+
+    // sh(`docker exec ${node} systemctl restart containerd || true`);
+
+    // await sleep(1 * 60 * 1000);
+
+    console.log("STEP 1b: launch Docker Registry...");
+    await launchDockerRegistry();
+    console.log("launched Docker Registry\n");
+
+    await sleep(1 * 60 * 1000);
+
+    console.log("STEP 1c: Creating namespace...");
     await createNS();
     console.log("Namespace created\n");
 
@@ -2883,7 +3021,9 @@ const runSetup = async () => {
 };
 
 module.exports = {
-    applyYamlFromUrl, 
+    applyYamlFromUrl,
+    preStartUpConfig,
+    launchDockerRegistry, 
     initIngress,
     createNS,
     pvApply,
