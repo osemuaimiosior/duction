@@ -356,7 +356,7 @@ const pvcApplyOrg = async () => {
   ];
 
   await createOrgNS();
-  await sleep(1 * 60 * 1000);
+  await sleep(0.5 * 60 * 1000);
 
   for (let file of files) {
     const docs = yaml.loadAll(fs.readFileSync(file, "utf8"));
@@ -1551,7 +1551,6 @@ const checkOrdererDeployment = async () => {
   return true;
 };
 
-
 const applyOrgPeerYaml = async () => {
 
   const peers = [
@@ -2225,54 +2224,48 @@ const deployChaincode = async (ccPath) => {
  * The below const q is a sample invoke query
  */
 
-const q = {
-  "Args":["CreateAsset","1","blue","35","tom","1000"]
-};
+// const q = {
+//   "Args":["CreateAsset","1","blue","35","tom","1000"]
+// };
 
 /**
  *
  * @param q: A JSON string describing the function and arguments to invoke the chaincode with
  */
 
-const invokeChaincode = async (q) => {
+const invokeChaincode = async () => {
   const cc_name = process.env.CC_NAME || "ductioncc";
   const org = "org1";
   const peer = "peer1";
-  const CHANNEL_NAME = process.env.CHANNEL_NAME || "duction_channel";
+  const CHANNEL_NAME = process.env.CHANNEL_NAME || "ductionchannel";
   const {DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT} = process.env;
 
   const base = process.cwd();
   const TEMP_DIR = `${base}/build`;
 
-  const invokeQuery = q;
+  const invokeQuery = { "Args":["CreateAsset","1","blue","35","tom","1000"] };
 
   const cmd =`
       export FABRIC_CFG_PATH=${base}/config/${org}
       export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
       export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
       export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
-    `;
+
+      peer chaincode invoke \
+        -n              ${cc_name} \
+        -C              ${CHANNEL_NAME} \
+        -c '${JSON.stringify(invokeQuery)}' \
+        --orderer       org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
+        --connTimeout   ${ORDERER_TIMEOUT} \
+        --waitForEvent \
+        --tls --cafile  ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
+        ${process.env.INVOKE_EXTRA_ARGS || ""}
+  `;
 
     const { stdout, stderr } = await execAsync(cmd);
 
     if (stderr) console.error("stderr:", stderr);
     console.log(stdout);
-
-  const cmd0 =`
-      peer chaincode invoke \
-        -n              ${cc_name} \
-        -C              ${CHANNEL_NAME} \
-        -c              ${invokeQuery} \
-        --orderer       org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
-        --connTimeout   ${ORDERER_TIMEOUT} \
-        --tls --cafile  ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
-        ${INVOKE_EXTRA_ARGS}
-    `;
-
-    const { stdout0, stderr0 } = await execAsync(cmd0);
-
-    if (stderr0) console.error("stderr:", stderr0);
-    console.log(stdout0);
 
 };
 
@@ -2280,46 +2273,41 @@ const invokeChaincode = async (q) => {
  * The below const q0 is a sample invoke query
  */
 
-const q0 = {
-  "Args":["ReadAsset","1"]
-};
+// const q0 = {
+//   "Args":["ReadAsset","1"]
+// };
 
-const queryChaincode = async (q) => {
+const queryChaincode = async () => {
   const cc_name = process.env.CC_NAME || "ductionCC";
   const org = "org1";
   const peer = "peer1";
-  const CHANNEL_NAME = process.env.CHANNEL_NAME || "duction_channel";
+  const CHANNEL_NAME = process.env.CHANNEL_NAME || "ductionchannel";
   const {DOMAIN, NGINX_HTTPS_PORT} = process.env;
 
   const base = process.cwd();
   const TEMP_DIR = `${base}/build`;
 
-  const queryLedger = q0;
+  /**
+   * The below const q0 is a sample invoke query
+   */
+  const queryLedger = { "Args":["ReadAsset","1"] };
 
   const cmd =`
       export FABRIC_CFG_PATH=${base}/config/${org}
       export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
       export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
       export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
+
+      peer chaincode query \
+        -n    ${cc_name} \
+        -C    ${CHANNEL_NAME} \
+        -c '${JSON.stringify(queryLedger)}'
     `;
 
     const { stdout, stderr } = await execAsync(cmd);
 
     if (stderr) console.error("stderr:", stderr);
     console.log(stdout);
-
-  const cmd0 =`
-      peer chaincode query \
-        -n    ${cc_name} \
-        -C    ${CHANNEL_NAME} \
-        -c    ${queryLedger} \
-        ${QUERY_EXTRA_ARGS}
-    `;
-
-    const { stdout0, stderr0 } = await execAsync(cmd0);
-
-    if (stderr0) console.error("stderr:", stderr0);
-    console.log(stdout0);
 
 };
 
@@ -2389,66 +2377,102 @@ async function prepareChaincodeImage(cc_folder, cc_name) {
   };
 }
 
+// async function packageChaincode(cc_name, cc_label, cc_package){
 
-async function packageChaincode(cc_name, cc_label, cc_package){
+//   const cc_folder = path.dirname(cc_package);
+//   const archive_name = path.basename(cc_package);
+
+//   await fsp.mkdir(cc_folder, { recursive: true });
+
+//   console.log(`Packaging ccaas chaincode ${cc_label}`);
+
+//   const peerName = "org1-peer1";
+
+//   const cc_default_address=`${peerName}-ccaas-${cc_name}:9999`
+//   const cc_address = process.env.TEST_NETWORK_CHAINCODE_ADDRESS || cc_default_address;
+
+//    // Build paths
+//   const connectionJson = path.join(cc_folder, "connection.json");
+//   const metadataJson = path.join(cc_folder, "metadata.json");
+//   const codeTarGz = path.join(cc_folder, "code.tar.gz");
+
+//   // Write connection.json
+//   await fsp.writeFile(connectionJson, JSON.stringify({
+//       address: cc_address,
+//       dial_timeout: "10s",
+//       tls_required: false
+//   }, null, 2));
+
+//   // Write metadata.json
+//   await fsp.writeFile(metadataJson, JSON.stringify({
+//       type: "ccaas",
+//       label: cc_label
+//   }, null, 2));
+
+//   // Create code.tar.gz (contains only connection.json)
+//   await tar.create(
+//       {
+//           gzip: true,
+//           file: codeTarGz,
+//           cwd: cc_folder
+//       },
+//       ["connection.json"]
+//   );
+
+//   // Create final archive (contains code.tar.gz and metadata.json)
+//   await tar.create(
+//       {
+//           gzip: true,
+//           file: cc_package,
+//           cwd: cc_folder
+//       },
+//       ["code.tar.gz", "metadata.json"]
+//   );
+
+//   // Cleanup
+//   // await fs.rm(codeTarGz);
+
+//   // Cleanup (Node 22 safe)
+//   await fsp.rm(codeTarGz, { force: true });
+
+//   console.log("Chaincode package created:", cc_package);
+// };
+
+async function packageChaincode(cc_name, cc_label, cc_package) {
 
   const cc_folder = path.dirname(cc_package);
-  const archive_name = path.basename(cc_package);
-
   await fsp.mkdir(cc_folder, { recursive: true });
 
   console.log(`Packaging ccaas chaincode ${cc_label}`);
 
-  const cc_default_address=`${cc_name}-ccaas-${cc_name}:9999`
-  const cc_address = process.env.TEST_NETWORK_CHAINCODE_ADDRESS || cc_default_address;
+   const peerName = "org1peer1"; //This can be changed if cc was not only used on org1-peer1
 
-   // Build paths
+  // const cc_default_address = `${peerName}-ccaas-${cc_name}:9999`;
+  const cc_address = `${peerName}-ccaas-${cc_name}:9999`;
+  // const cc_address = process.env.TEST_NETWORK_CHAINCODE_ADDRESS || cc_default_address;
+
   const connectionJson = path.join(cc_folder, "connection.json");
   const metadataJson = path.join(cc_folder, "metadata.json");
   const codeTarGz = path.join(cc_folder, "code.tar.gz");
 
-  // Write connection.json
   await fsp.writeFile(connectionJson, JSON.stringify({
       address: cc_address,
-      dial_timeout: "10s",
+      dial_timeout: "60s",
       tls_required: false
   }, null, 2));
 
-  // Write metadata.json
   await fsp.writeFile(metadataJson, JSON.stringify({
       type: "ccaas",
       label: cc_label
   }, null, 2));
 
-  // Create code.tar.gz (contains only connection.json)
-  await tar.create(
-      {
-          gzip: true,
-          file: codeTarGz,
-          cwd: cc_folder
-      },
-      ["connection.json"]
-  );
+  await tar.create({ gzip: true, file: codeTarGz, cwd: cc_folder }, ["connection.json"]);
+  await tar.create({ gzip: true, file: cc_package, cwd: cc_folder }, ["code.tar.gz", "metadata.json"]);
 
-  // Create final archive (contains code.tar.gz and metadata.json)
-  await tar.create(
-      {
-          gzip: true,
-          file: cc_package,
-          cwd: cc_folder
-      },
-      ["code.tar.gz", "metadata.json"]
-  );
-
-  // Cleanup
-  // await fs.rm(codeTarGz);
-
-  // Cleanup (Node 22 safe)
   await fsp.rm(codeTarGz, { force: true });
 
   console.log("Chaincode package created:", cc_package);
-};
-
+}
 
 async function setChaincodeId(cc_package) {
   const absPath = path.resolve(cc_package);
@@ -2500,7 +2524,6 @@ async function setChaincodeId(cc_package) {
   };
 };
 
-
 async function kubectlApply(namespace, yaml) {
   return new Promise((resolve, reject) => {
     const kubectl = spawn("kubectl", ["-n", namespace, "apply", "-f", "-"], {
@@ -2525,30 +2548,6 @@ async function kubectlApply(namespace, yaml) {
     kubectl.stdin.end();
   });
 };
-
-// async function applyRegistrySecret(){
-
-//   const organisations = ["org0", "org1", "org2"];
-//   const {GITHUB_TOKEN, GHCR_SECRET_NAME, GITHUB_USER_NAME, GITHUB_SERVER, GITHUB_EMAIL} = process.env;
-
-//   for (let org of organisations){
-      
-//       const cmd = `kubectl create secret docker-registry ${GHCR_SECRET_NAME} \
-//         --namespace ${org} \
-//         --docker-server=${GITHUB_SERVER} \
-//         --docker-username=${GITHUB_USER_NAME} \
-//         --docker-password=${GITHUB_TOKEN} \
-//         --docker-email=${GITHUB_EMAIL}
-//       `
-//     const {stdout, stderr} = await execAsync(cmd);
-
-//     if(stderr) console.log(stderr)
-//     if(stdout) console.log(stdout)
-
-//     return stdout;
-//   }
-  
-// };
 
 async function applyRegistrySecret() {
   const organisations = ["org0", "org1", "org2"];
@@ -2581,8 +2580,7 @@ async function applyRegistrySecret() {
       console.error(`Failed in ${org}:`, err.stderr || err);
     }
   }
-}
-
+};
 
 async function launchChaincodeService(cc_name){
   const org="org1";
@@ -2627,96 +2625,132 @@ async function launchChaincodeService(cc_name){
   }
 };
 
-async function activateChaincode(cc_name, cc_package){
-  const org="org1";
-  const peers = ["peer1", "peer2"];
-  const {CHAINCODE_IMAGE, DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT, CHAINCODE_ID, ORG1_NS, CHANNEL_NAME} = process.env;
+// async function activateChaincode(cc_name, cc_package){
+//   const org="org1";
+//   const peers = ["peer1", "peer2"];
+//   const {CHAINCODE_IMAGE, DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT, CHAINCODE_ID, ORG1_NS, CHANNEL_NAME} = process.env;
 
-  await setChaincodeId(cc_package);
+//   await setChaincodeId(cc_package);
 
-  //Install chaincode
-  for (let peer of peers){
-    const base = process.cwd();
-    const TEMP_DIR = `${base}/build`;
+//   //Install chaincode
+//   for (let peer of peers){
+//     const base = process.cwd();
+//     const TEMP_DIR = `${base}/build`;
     
-    console.log(`Installing chaincode for org ${org} peer ${peer}`);
+//     console.log(`Installing chaincode for org: ${org} peer: ${peer}`);
 
-      const cmd =`
-        export FABRIC_CFG_PATH=${base}/config/${org}
-        export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
-        export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
-      `;
 
-      const { stdout, stderr } = await execAsync(cmd);
+//     const { stdout, stderr } = await execAsync(
+//       `peer lifecycle chaincode install ${cc_package}`,
+//       {
+//         env: {
+//           ...process.env,
+//           FABRIC_CFG_PATH: `${base}/config/${org}`,
+//           CORE_PEER_ADDRESS: `${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}`,
+//           CORE_PEER_MSPCONFIGPATH: `${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp`,
+//           CORE_PEER_TLS_ROOTCERT_FILE: `${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem`
+//         }
+//       }
+//     );
+
+
+//       if (stderr) console.error("stderr:",stderr);
+//       console.log(stdout);
+//   };
+
+//   const runLeg = async () => {
+
+//     try{
+//       //Approve and commit chaincode
+//       await approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID);
+//       await commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID);
+//       } catch (err) {
+//           console.error("Activate Chaincode Last Leg SETUP FAILED:", err);
+//           process.exit(1);
+//       }
+//   };
+
+//   await runLeg().catch(err => {
+//     console.log(err);
+//   })
+    
+// };
+
+async function activateChaincode(cc_name, cc_package){
+    const org="org1";
+    const peers = ["peer1", "peer2"];
+    const {DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT, ORG1_NS, CHANNEL_NAME} = process.env;
+
+    // Step 1: Compute chaincode ID and set it globally
+    const { ccSha256, label } = await setChaincodeId(cc_package);
+    const CHAINCODE_ID = `${label}:${ccSha256}`;
+    process.env.CHAINCODE_ID = CHAINCODE_ID; // now globally available
+
+    console.log("Chaincode ID set globally:", process.env.CHAINCODE_ID);
+
+    // Step 2: Install chaincode
+    for (let peer of peers){
+      const base = process.cwd();
+      const TEMP_DIR = `${base}/build`;
+      
+      console.log(`Installing chaincode for org: ${org} peer: ${peer}`);
+      const { stdout, stderr } = await execAsync(
+        `peer lifecycle chaincode install ${cc_package}`,
+        {
+          env: {
+            ...process.env,
+            FABRIC_CFG_PATH: `${base}/config/${org}`,
+            CORE_PEER_ADDRESS: `${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}`,
+            CORE_PEER_MSPCONFIGPATH: `${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp`,
+            CORE_PEER_TLS_ROOTCERT_FILE: `${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem`
+          }
+        }
+      );
 
       if (stderr) console.error("stderr:", stderr);
       console.log(stdout);
+    }
 
-      const cmd0 =` peer lifecycle chaincode install ${cc_package} ${process.env.INSTALL_EXTRA_ARGS}`;
-
-      const { stdout0, stderr0 } = await execAsync(cmd0);
-
-      if (stderr0) console.error("stderr:", stderr0);
-      console.log(stdout0);
-  };
-
-  const runLeg = async () => {
-
-    try{
-      //Approve and commit chaincode
-      await approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID);
-      await commitChaincode(cc_name);
-      } catch (err) {
-          console.error("Activate Chaincode Last Leg SETUP FAILED:", err);
-          process.exit(1);
-      }
-  };
-
-  await runLeg().catch(err => {
-    console.log(err);
-  })
-    
+    // Step 3: Approve & commit with correct CHAINCODE_ID
+    try {
+      await approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, process.env.CHAINCODE_ID);
+      await commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID);
+    } catch (err) {
+      console.error("Activate Chaincode Last Leg SETUP FAILED:", err);
+      process.exit(1);
+    }
 };
 
-async function approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID){
-  const base = process.cwd();
-  const TEMP_DIR = `${base}/build`;
-  const org="org1"
-  const peer="peer1"
+async function approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, CHAINCODE_ID){
+    const base = process.cwd();
+    const TEMP_DIR = `${base}/build`;
+    const org="org1"
+    const peer="peer1"
 
-  console.log(`Approving chaincode ${cc_name} with ID ${CHAINCODE_ID}`);
+    console.log(`Approving chaincode ${cc_name} with ID ${process.env.CHAINCODE_ID}`);
 
-  const cmd =`
-        export FABRIC_CFG_PATH=${base}/config/${org}
-        export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
-        export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
-      `;
+    const cmd = `
+      export FABRIC_CFG_PATH=${base}/config/${org} &&
+      export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT} &&
+      export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp &&
+      export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem &&
+      peer lifecycle chaincode approveformyorg \
+          --channelID ${CHANNEL_NAME} \
+          --name ${cc_name} \
+          --version 1 \
+          --package-id ${process.env.CHAINCODE_ID} \
+          --sequence 1 \
+          --orderer org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
+          --connTimeout ${process.env.ORDERER_TIMEOUT} \
+          --tls --cafile ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
+          ${process.env.APPROVE_EXTRA_ARGS || ""}
+    `;
 
-      const { stdout, stderr } = await execAsync(cmd);
 
-      if (stderr) console.error("stderr:", stderr);
-      console.log(stdout);
+    const { stdout, stderr } = await execAsync(cmd);
 
-  const cmd0 =`
-    peer lifecycle \
-      chaincode approveformyorg \
-      --channelID     ${CHANNEL_NAME} \
-      --name          ${cc_name} \
-      --version       1 \
-      --package-id    ${CHAINCODE_ID} \
-      --sequence      1 \
-      --orderer       org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
-      --connTimeout   ${ORDERER_TIMEOUT} \
-      --tls --cafile  ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
-      ${process.env.APPROVE_EXTRA_ARGS}
-  `;
-
-      const { stdout0, stderr0 } = await execAsync(cmd0);
-
-      if (stderr0) console.error("stderr:", stderr0);
-      console.log(stdout0);
+    if (stderr) console.error("stderr:", stderr);
+    console.log(stdout);
 };
 
 async function commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID){
@@ -2725,37 +2759,30 @@ async function commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, 
   const org="org1"
   const peer="peer1"
 
-  console.log(`Approving chaincode ${cc_name} with ID ${CHAINCODE_ID}`);
+  console.log(`Committing chaincode ${cc_name}`);
 
-  const cmd =`
-        export FABRIC_CFG_PATH=${base}/config/${org}
-        export CORE_PEER_ADDRESS=${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}
-        export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp
-        export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem
-      `;
+  const envVars = {
+    ...process.env,
+    FABRIC_CFG_PATH: `${base}/config/${org}`,
+    CORE_PEER_ADDRESS: `${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}`,
+    CORE_PEER_MSPCONFIGPATH: `${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp`,
+    CORE_PEER_TLS_ROOTCERT_FILE: `${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem`
+  };
 
-      const { stdout, stderr } = await execAsync(cmd);
+  const { stdout, stderr } = await execAsync(
+    `peer lifecycle chaincode commit \
+      --channelID ${CHANNEL_NAME} \
+      --name ${cc_name} \
+      --version 1 \
+      --sequence 1 \
+      --orderer org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
+      --connTimeout ${ORDERER_TIMEOUT} \
+      --tls --cafile ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem`,
+    { env: envVars }
+  );
 
-      if (stderr) console.error("stderr:", stderr);
-      console.log(stdout);
-
-  const cmd0 =`
-    peer lifecycle \
-      chaincode commit \
-      --channelID     ${CHANNEL_NAME} \
-      --name          ${cc_name} \
-      --version       1 \
-      --sequence      1 \
-      --orderer       org0-orderer1.${DOMAIN}:${NGINX_HTTPS_PORT} \
-      --connTimeout   ${ORDERER_TIMEOUT} \
-      --tls --cafile  ${TEMP_DIR}/channel-msp/ordererOrganizations/org0/orderers/org0-orderer1/tls/signcerts/tls-cert.pem \
-      ${process.env.COMMIT_EXTRA_ARGS}
-  `;
-
-      const { stdout0, stderr0 } = await execAsync(cmd0);
-
-      if (stderr0) console.error("stderr:", stderr0);
-      console.log(stdout0);
+  if (stderr) console.error("stderr:", stderr);
+  console.log(stdout);
 };
 
 const runSetup = async () => {
@@ -2765,29 +2792,29 @@ const runSetup = async () => {
     await preStartUpConfig();
     console.log("Created\n");
 
-    await sleep(2 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     // sh(`docker exec ${node} systemctl restart containerd || true`);
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 1b: launch Docker Registry...");
     await launchDockerRegistry();
     console.log("launched Docker Registry\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 1c: Creating namespace...");
     await createNS();
     console.log("Namespace created\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 1b: Apply PV to organisational namespace...");
     await pvApply();
     console.log("PV applied and ready\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 2: Apply PVC to organisational level...");
     await pvcApplyOrg();
@@ -2797,27 +2824,27 @@ const runSetup = async () => {
     await initIngress();
     console.log("Ingress applied\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 4: Applying Cert-Manager YAML...");
     await applyYamlFromUrl();
     console.log("Cert-Manager YAML applied\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     // console.log("STEP 5: Checking Cert-Manager deployments...");
     // await checkCertMgDeployment();
     // console.log("Cert-Manager ready\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     // console.log("STEP 6: Waiting for nginx ingress controller...");
     // await waitForNginxIngress();
     // console.log("Ingress controller ready\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 8: Create configmap for organisations...");
     await recreateConfigMap();
@@ -2829,31 +2856,31 @@ const runSetup = async () => {
     await checkCertMgDeployment();
     console.log("Cert-Manager ready\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 6: Waiting for nginx ingress controller...");
     await waitForNginxIngress();
     console.log("Ingress controller ready\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 9: Initializing TLS certificate Issuers...");
     await initTLSCertIssuers();
     console.log("TLS certificate Issuer Initialized and ready\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 10: Initializing TLS certificate Issuers...");
     await waitForTLSIssuerReady();
     console.log("TLS certificate Issuer Initialized and ready\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 11: Generate TLS Issuers...");
     await generateTLS();
     console.log("Generated TLS Issuers and now ready\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
      console.log("STEP 12: Applying CA Yaml To Organisation Namespace...");
     await applyCAYamlToNamespace("kube/org0/org0-ca.yaml", process.env.ORG0_NS);
@@ -2861,19 +2888,19 @@ const runSetup = async () => {
     await applyCAYamlToNamespace("kube/org2/org2-ca.yaml", process.env.ORG2_NS);
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 12b: Check CA deployment...");
     await checkCADeployment();
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 13: Waiting for CA certificate Issuers...");
     await waitForIssuerReady();
     console.log("CA certificate Issuer Initialized and ready\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 14: Creating directory...");
     fs.mkdir(`${process.cwd()}/build/cas/org0-ca`, { recursive: true }, (err) => {
@@ -2891,7 +2918,7 @@ const runSetup = async () => {
     });
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 15: Reading CA's TLS certificate from the cert-manager CA secret...");
     await extractCACert(process.env.ORG0_NS, "org0-ca-tls-cert",`${process.cwd()}/build/cas/org0-ca/tlsca-cert.pem`);
@@ -2899,37 +2926,37 @@ const runSetup = async () => {
     await extractCACert(process.env.ORG2_NS, "org2-ca-tls-cert",`${process.cwd()}/build/cas/org2-ca/tlsca-cert.pem`);
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 16a: Enrolling root CA Org users...");
     await enrollOrgCA()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 16b: Setup Org0 Orderers...");
     await setupOrg0Orderers()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 17: Setup Org Peers...");
     await setupOrgPeers()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 18: Apply Orderer Yaml...");
     await applyOrdererYaml()
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 19: Checking Orderer Deployment...");
     await checkOrdererDeployment()
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("DOne\n");
 
@@ -2944,73 +2971,73 @@ const runSetup = async () => {
     await checkOrgPeerDeployment()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 22: Registering Org Admins...");
     await registerOrgAdmins()
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 22: Enrolling Org Admins...");
     await enrollOrgAdmins()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 24: Creating Channel Org MSP...");
     await createChannelOrgMSP()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 25: Extracting Orderer Cert...");
     await extractOrdererCert()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 26: Creating Genesis Block...");
     await createGenesisBlock()
     console.log("DOne\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 27: Joining Channel Orderers...");
     await joinChannelOrderers()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 28: Joining Channel Peers...");
     await joinChannelPeers()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 29a: Apply Registry Secret...");
     await applyRegistrySecret()
     console.log("Done\n");
 
-    await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 29b: Deploying Chaincode...");
     await deployChaincode("../ccaas/chaincode-go")
     console.log("Done\n");
 
-    // await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 30: Invoking Chaincode...");
-    await invokeChaincode(q)
+    await invokeChaincode()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    await sleep(0.5 * 60 * 1000);
 
     console.log("STEP 31: Querying Chaincode...");
     await queryChaincode()
     console.log("DOne\n");
 
-    // await sleep(1 * 60 * 1000);
+    // await sleep(0.5 * 60 * 1000);
 
     console.log("\n🎉 ALL STEPS COMPLETED SUCCESSFULLY!\n");
 
@@ -3019,6 +3046,7 @@ const runSetup = async () => {
     process.exit(1);
   }
 };
+
 
 module.exports = {
     applyYamlFromUrl,

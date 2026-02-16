@@ -1,0 +1,16 @@
+
+    NodeOUs:
+      Enable: true
+      ClientOUIdentifier:
+        Certificate: cacerts/org1-ca-localho-st-443.pem
+        OrganizationalUnitIdentifier: client
+      PeerOUIdentifier:
+        Certificate: cacerts/org1-ca-localho-st-443.pem
+        OrganizationalUnitIdentifier: peer
+      AdminOUIdentifier:
+        Certificate: cacerts/org1-ca-localho-st-443.pem
+        OrganizationalUnitIdentifier: admin
+      OrdererOUIdentifier:
+        Certificate: cacerts/org1-ca-localho-st-443.pem
+        OrganizationalUnitIdentifier: orderer
+  
