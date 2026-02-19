@@ -1,0 +1,23 @@
+---
+apiVersion: hlf.kungfusoftware.es/v1alpha1
+kind: FabricFollowerChannel
+metadata:
+  name: demo-org1msp
+spec:
+  anchorPeers:
+    - host: peer0-org1.localho.st
+      port: 443
+  hlfIdentity:
+    secretKey: org1msp.yaml
+    secretName: wallet
+    secretNamespace: default
+  mspId: Org1MSP
+  name: demo
+  externalPeersToJoin: []
+  orderers:
+    - certificate: |
+        ${ORDERER0_TLS_CERT}
+      url: grpcs://ord-node1.default:7050
+  peersToJoin:
+    - name: org1-peer0
+      namespace: default
