@@ -1,4 +1,4 @@
-Duction is an EPR system built on Hyperledger Fabric with AI integartion for efficieency
+Duction is a permissioned distributed blockchain core banking platform.
 
 A decentralized core enterprise ERP sysem:
 
