@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secooya - Tokenized Asset Platform on Hyperledger Fabric</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='glogo' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%233b82f6;stop-opacity:1'/%3E%3Cstop offset='100%25' style='stop-color:%232563eb;stop-opacity:1'/%3E%3C/linearGradient%3E%3ClinearGradient id='glight' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%231e40af;stop-opacity:1'/%3E%3Cstop offset='100%25' style='stop-color:%231e3a8a;stop-opacity:1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='8' y='5' width='84' height='84' rx='10' fill='url(%23glight)' stroke='%231e40af' stroke-width='2'/%3E%3Crect x='10' y='7' width='80' height='80' rx='8' fill='url(%23glogo)' stroke='%232563eb' stroke-width='1.5' opacity='0.8'/%3E%3Ccircle cx='50' cy='47' r='18' fill='white' opacity='0.2'/%3E%3Ccircle cx='50' cy='47' r='16' fill='none' stroke='white' stroke-width='1.5' opacity='0.4'/%3E%3Cpath d='M 40 36 Q 50 52 60 36' stroke='white' stroke-width='2' fill='none' opacity='0.6'/%3E%3Cpath d='M 40 52 Q 50 68 60 52' stroke='white' stroke-width='2' fill='none' opacity='0.6'/%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        /* Navigation */
+        nav {
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: opacity 0.3s;
+            line-height: 1;
+            height: auto;
+        }
+
+        .logo:hover {
+            opacity: 0.9;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 70px;
+            flex-shrink: 0;
+            display: block;
+            margin-top: -2px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #1e40af;
+        }
+
+        /* Hero Section - Carousel */
+        .hero {
+            position: relative;
+            min-height: 600px;
+            overflow: hidden;
+            background: #0f172a;
+        }
+
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 600px;
+        }
+
+        .carousel-slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            color: white;
+        }
+
+        .carousel-slide.active {
+            opacity: 1;
+        }
+
+        .carousel-slide-1,
+        .carousel-slide-2,
+        .carousel-slide-3 {
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #0f172a 100%);
+        }
+
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+            animation: fadeIn 0.8s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Carousel Controls */
+        .carousel-controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            z-index: 10;
+        }
+
+        .carousel-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .carousel-dot.active {
+            background: white;
+            transform: scale(1.3);
+        }
+
+        .carousel-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .carousel-arrow:hover {
+            background: rgba(255, 255, 255, 0.6);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .carousel-arrow-left {
+            left: 1rem;
+        }
+
+        .carousel-arrow-right {
+            right: 1rem;
+        }
+
+        .btn-large {
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+        }
+
+        .btn-light {
+            background: white;
+            color: #1e40af;
+        }
+
+        .btn-light:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 5rem 2rem;
+            background: #f8fafc;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: #1e40af;
+            font-weight: 700;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(30, 64, 175, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: #1e40af;
+        }
+
+        .feature-card p {
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        /* How It Works Section */
+        .how-it-works {
+            padding: 5rem 2rem;
+            background: white;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .step {
+            background: #f1f5f9;
+            padding: 2rem;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .step h3 {
+            color: #1e40af;
+            margin-bottom: 0.5rem;
+        }
+
+        .step p {
+            color: #64748b;
+        }
+
+        /* Benefits Section */
+        .benefits {
+            padding: 5rem 2rem;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        .benefits-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .benefits-text h2 {
+            font-size: 2rem;
+            color: #1e40af;
+            margin-bottom: 1.5rem;
+        }
+
+        .benefit-item {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .benefit-item::before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .benefit-item p {
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .benefits-image {
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .benefits-illustration {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+
+        /* CTA Section */
+        .cta {
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .cta h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta p {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Footer */
+        footer {
+            background: #0f172a;
+            color: #cbd5e1;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .footer-section h3 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .footer-section a {
+            display: block;
+            color: #cbd5e1;
+            text-decoration: none;
+            margin-bottom: 0.5rem;
+            transition: color 0.3s;
+        }
+
+        .footer-section a:hover {
+            color: #3b82f6;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #334155;
+            padding-top: 2rem;
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .carousel-arrow {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+
+            .carousel-arrow-left {
+                left: 0.5rem;
+            }
+
+            .carousel-arrow-right {
+                right: 0.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .section-title {
+                font-size: 1.8rem;
+            }
+
+            .benefits-content {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .btn-large {
+                width: 100%;
+            }
+
+            .cta h2 {
+                font-size: 1.8rem;
+            }
+        }
+
+        /* Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .feature-card {
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .feature-card:nth-child(1) { animation-delay: 0.1s; }
+        .feature-card:nth-child(2) { animation-delay: 0.2s; }
+        .feature-card:nth-child(3) { animation-delay: 0.3s; }
+        .feature-card:nth-child(4) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <span>Secooya</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#benefits">Benefits</a></li>
+            </ul>
+            <div class="nav-buttons">
+                <a href="login" class="btn btn-secondary">Login</a>
+                <a href="register" class="btn btn-primary">Register</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section - Carousel -->
+    <section class="hero">
+        <div class="carousel-container">
+            <!-- Slide 1 -->
+            <div class="carousel-slide carousel-slide-1 active">
+                <div class="hero-content">
+                    <h1>Complete Asset Lifecycle on Hyperledger Fabric</h1>
+                    <p>From issuance to asset servicing, Secooya provides a comprehensive DLT solution for tokenized assets with enterprise-grade security and automation.</p>
+                    <div class="hero-buttons">
+                        <a href="register" class="btn btn-large btn-light">Get Started</a>
+                        <a href="#features" class="btn btn-large btn-secondary">Explore Services</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2 -->
+            <div class="carousel-slide carousel-slide-2">
+                <div class="hero-content">
+                    <h1>Issuance Made Simple</h1>
+                    <p>Mint and tokenize assets with shared, permissioned access to all required due diligence, legal and accounting data on the blockchain.</p>
+                    <div class="hero-buttons">
+                        <a href="register" class="btn btn-large btn-light">Start Issuing</a>
+                        <a href="#features" class="btn btn-large btn-secondary">Learn More</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3 -->
+            <div class="carousel-slide carousel-slide-3">
+                <div class="hero-content">
+                    <h1>Decentralized Trading & Instant Settlement</h1>
+                    <p>Trade on decentralized platforms with automated clearing and single immutable record of truth. Eliminate reconciliation delays forever.</p>
+                    <div class="hero-buttons">
+                        <a href="register" class="btn btn-large btn-light">Create Account</a>
+                        <a href="#how-it-works" class="btn btn-large btn-secondary">Value Chain</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Arrows -->
+            <button class="carousel-arrow carousel-arrow-left" onclick="previousSlide()">❮</button>
+            <button class="carousel-arrow carousel-arrow-right" onclick="nextSlide()">❯</button>
+
+            <!-- Dots -->
+            <div class="carousel-controls">
+                <span class="carousel-dot active" onclick="currentSlide(0)"></span>
+                <span class="carousel-dot" onclick="currentSlide(1)"></span>
+                <span class="carousel-dot" onclick="currentSlide(2)"></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Services Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Our Core Services</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>Issuance</h3>
+                    <p>Mint and tokenize real-world assets. Shared, permissioned access to all required due diligence, legal and accounting data on-chain with automated manual processes.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Trading</h3>
+                    <p>Create decentralized trading platforms for accelerated trading and greater transparency. Extended trading hours enable higher throughput for select products.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Clearing & Settlement</h3>
+                    <p>Automated clearing and settlement with single, immutable record of truth on all transactions. Eliminate reconciliation and trade matching issues.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏦</div>
+                    <h3>Custody</h3>
+                    <p>Automated workflows via smart contracts enable digital custody on-chain and self-custody of assets. Complex chains of custody become simple and transparent.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚙️</div>
+                    <h3>Asset Servicing</h3>
+                    <p>Automated corporate actions via smart contracts. Manual processes facilitate execution of corporate actions like coupon payments.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Value Chain Section -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <h2 class="section-title">The Secooya Value Chain</h2>
+            <div class="steps-grid">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Issuance</h3>
+                    <p>Create and tokenize assets. Manage due diligence, legal, and accounting data with shared, permissioned on-chain access.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Trading</h3>
+                    <p>Execute trades on decentralized platforms with extended trading hours and greater price discovery.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Clearing & Settlement</h3>
+                    <p>Automated clearing with instant settlement. Single immutable record eliminates reconciliation delays.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Custody & Servicing</h3>
+                    <p>Secure custody management and automated corporate actions through smart contracts on Hyperledger Fabric.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="benefits" id="benefits">
+        <div class="container">
+            <div class="benefits-content">
+                <div class="benefits-text">
+                    <h2>DLT Efficiency Gains</h2>
+                    <div class="benefit-item">
+                        <p><strong>Shared Access:</strong> Permissioned access to all required due diligence, legal and accounting data on-chain.</p>
+                    </div>
+                    <div class="benefit-item">
+                        <p><strong>Automated Processes:</strong> Reduction in number of agents and automated manual processes.</p>
+                    </div>
+                    <div class="benefit-item">
+                        <p><strong>Decentralized Trading:</strong> Accelerated trading with greater transparency for select products.</p>
+                    </div>
+                    <div class="benefit-item">
+                        <p><strong>Instant Settlement:</strong> Single, immutable record of truth on all transactions eliminates reconciliation delays.</p>
+                    </div>
+                    <div class="benefit-item">
+                        <p><strong>Smart Contracts:</strong> Automation of workflows, custody management, and corporate actions via smart contracts.</p>
+                    </div>
+                </div>
+                <div class="benefits-image">
+                    <svg class="benefits-illustration" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Animated Background Glow -->
+                        <defs>
+                            <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="lightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#1e3a8a;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        
+                        <!-- Background circle with gradient -->
+                        <circle cx="200" cy="200" r="190" fill="#f0f9ff" opacity="0.5"/>
+                        <circle cx="200" cy="200" r="180" fill="none" stroke="#e0f2fe" stroke-width="2" opacity="0.6"/>
+                        
+                        <!-- Central Main Asset - Larger and more prominent -->
+                        <g filter="url(#glow)">
+                            <rect x="130" y="50" width="140" height="140" rx="15" fill="url(#lightGradient)" stroke="#1e40af" stroke-width="3"/>
+                            <rect x="135" y="55" width="130" height="130" rx="12" fill="url(#mainGradient)" stroke="#2563eb" stroke-width="2" opacity="0.8"/>
+                            <circle cx="200" cy="120" r="35" fill="white" opacity="0.2"/>
+                            <circle cx="200" cy="120" r="30" fill="none" stroke="white" stroke-width="2" opacity="0.4"/>
+                            <path d="M 185 105 Q 200 130 215 105" stroke="white" stroke-width="3" fill="none" opacity="0.6"/>
+                            <path d="M 185 130 Q 200 155 215 130" stroke="white" stroke-width="3" fill="none" opacity="0.6"/>
+                        </g>
+                        
+                        <!-- Left Fractional Share -->
+                        <g>
+                            <rect x="20" y="250" width="100" height="100" rx="12" fill="url(#mainGradient)" stroke="#2563eb" stroke-width="2"/>
+                            <circle cx="70" cy="300" r="25" fill="white" opacity="0.15"/>
+                            <text x="70" y="310" font-size="40" text-anchor="middle" fill="white" font-weight="bold">◆</text>
+                        </g>
+                        
+                        <!-- Center-Left Fractional Share -->
+                        <g>
+                            <rect x="145" y="270" width="100" height="100" rx="12" fill="url(#mainGradient)" stroke="#2563eb" stroke-width="2"/>
+                            <circle cx="195" cy="320" r="25" fill="white" opacity="0.15"/>
+                            <text x="195" y="330" font-size="40" text-anchor="middle" fill="white" font-weight="bold">◆</text>
+                        </g>
+                        
+                        <!-- Right Fractional Share -->
+                        <g>
+                            <rect x="270" y="250" width="100" height="100" rx="12" fill="url(#mainGradient)" stroke="#2563eb" stroke-width="2"/>
+                            <circle cx="320" cy="300" r="25" fill="white" opacity="0.15"/>
+                            <text x="320" y="310" font-size="40" text-anchor="middle" fill="white" font-weight="bold">◆</text>
+                        </g>
+                        
+                        <!-- Connection Lines - Animated dashes -->
+                        <line x1="200" y1="190" x2="70" y2="250" stroke="url(#accentGradient)" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.7" stroke-linecap="round"/>
+                        <line x1="200" y1="190" x2="195" y2="270" stroke="url(#accentGradient)" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.7" stroke-linecap="round"/>
+                        <line x1="200" y1="190" x2="320" y2="250" stroke="url(#accentGradient)" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.7" stroke-linecap="round"/>
+                        
+                        <!-- Blockchain Network Layer -->
+                        <circle cx="60" cy="80" r="10" fill="url(#accentGradient)" filter="url(#glow)"/>
+                        <circle cx="340" cy="80" r="10" fill="url(#accentGradient)" filter="url(#glow)"/>
+                        <circle cx="200" cy="20" r="10" fill="url(#accentGradient)" filter="url(#glow)"/>
+                        
+                        <!-- Network connection lines -->
+                        <line x1="60" y1="80" x2="200" y2="50" stroke="url(#accentGradient)" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+                        <line x1="340" y1="80" x2="200" y2="50" stroke="url(#accentGradient)" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+                        <line x1="60" y1="80" x2="340" y2="80" stroke="url(#accentGradient)" stroke-width="2" opacity="0.3" stroke-linecap="round"/>
+                        
+                        <!-- Additional accent dots -->
+                        <circle cx="100" cy="160" r="5" fill="#10b981" opacity="0.4"/>
+                        <circle cx="300" cy="160" r="5" fill="#10b981" opacity="0.4"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to Start Trading?</h2>
+            <p>Join thousands of investors in the future of asset ownership</p>
+            <a href="register" class="btn btn-large btn-light">Create Your Account Today</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>About</h3>
+                <a href="#">About Us</a>
+                <a href="#">Blog</a>
+                <a href="#">Press</a>
+            </div>
+            <div class="footer-section">
+                <h3>Support</h3>
+                <a href="#">Help Center</a>
+                <a href="#">Contact Us</a>
+                <a href="#">FAQ</a>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Compliance</a>
+            </div>
+            <div class="footer-section">
+                <h3>Follow Us</h3>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+                <a href="#">Discord</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Secooya. All rights reserved. Powered by Hyperledger Fabric.</p>
+        </div>
+    </footer>
+
+    <script>
+        let currentSlideIndex = 0;
+        const slides = document.querySelectorAll('.carousel-slide');
+        const dots = document.querySelectorAll('.carousel-dot');
+        const totalSlides = slides.length;
+        let autoplayInterval;
+
+        function showSlide(n) {
+            // Remove active class from all slides and dots
+            slides.forEach(slide => slide.classList.remove('active'));
+            dots.forEach(dot => dot.classList.remove('active'));
+
+            // Add active class to current slide and dot
+            slides[n].classList.add('active');
+            dots[n].classList.add('active');
+        }
+
+        function nextSlide() {
+            currentSlideIndex = (currentSlideIndex + 1) % totalSlides;
+            showSlide(currentSlideIndex);
+            resetAutoplay();
+        }
+
+        function previousSlide() {
+            currentSlideIndex = (currentSlideIndex - 1 + totalSlides) % totalSlides;
+            showSlide(currentSlideIndex);
+            resetAutoplay();
+        }
+
+        function currentSlide(n) {
+            currentSlideIndex = n;
+            showSlide(currentSlideIndex);
+            resetAutoplay();
+        }
+
+        function autoplay() {
+            nextSlide();
+        }
+
+        function resetAutoplay() {
+            clearInterval(autoplayInterval);
+            autoplayInterval = setInterval(autoplay, 5000); // Change slide every 5 seconds
+        }
+
+        // Initialize carousel
+        showSlide(currentSlideIndex);
+        autoplayInterval = setInterval(autoplay, 5000);
+
+        // Stop autoplay on mouse hover
+        const carouselContainer = document.querySelector('.carousel-container');
+        carouselContainer.addEventListener('mouseenter', () => {
+            clearInterval(autoplayInterval);
+        });
+
+        // Resume autoplay on mouse leave
+        carouselContainer.addEventListener('mouseleave', () => {
+            autoplayInterval = setInterval(autoplay, 5000);
+        });
+    </script>
+</body>
+</html>
