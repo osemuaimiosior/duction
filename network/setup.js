@@ -163,25 +163,6 @@ const initIngress = async () => {
 };
 
 async function applyYamlFromUrl() {
-// async function applyYamlFromUrl(timeoutMs = 5 * 60 * 1000, retryInterval = 2 * 60 * 1000) {
-  // const endTime = Date.now() + timeoutMs;
-
-  // const url = process.env.CERT_MANAGER_YAML;
-
-  // while (Date.now() < endTime) {
-  //   console.log(`Downloading YAML from ${url}...`);
-  //   const cmd = `kubectl apply -f ${url}`;
-
-  //   try {
-  //     const { stdout } = await execAsync(cmd, { stdio: "inherit" });
-  //     console.log(stdout);
-  //     return stdout;
-      
-  //   } catch (err) {
-  //     console.error("Error executing enroll:", err.stderr || err);
-  //     await new Promise(r => setTimeout(r, retryInterval));
-  //   }
-  // }
   
   const filePath = path.join(__dirname, "..", "kube", "cert-manager.yaml");
   // console.log(filePath);
@@ -378,30 +359,6 @@ const pvcApplyOrg = async () => {
           
           console.log(`PVC already exists: ${name} — skipping`);
           continue;
-
-          // await sleep(3000);
-
-          // await k8sApi.createNamespacedPersistentVolumeClaim(namespace, body);
-          // await k8sApi.patchNamespacedPersistentVolumeClaim(
-          //   {
-          //     apiVersion: body.apiVersion,
-          //     kind: body.kind,
-          //     metadata: { 
-          //       name: body.metadata.name, 
-          //     }
-          //   },
-          //   name,
-          //   namespace,
-          //   body,
-          //   undefined,
-          //   undefined,
-          //   undefined,
-          //   {
-          //     headers: { "Content-Type": "application/merge-patch+json" },
-          //   }
-          // );
-
-          // console.log(`PVC patched: ${name}`);
 
         } catch (patchErr) {
           console.log(`Failed to skip ${name}:`, patchErr.response?.body || patchErr);
@@ -894,13 +851,6 @@ async function extractCACert(namespace, secretName, outputPath) {
     console.error("Error extracting CA cert:", err);
   }
 };
-
-// const pathsToCheck = [
-//       "/usr/local/bin/fabric-ca-client",
-//       "/mnt/c/Users/HP/bin/fabric-ca-client"
-//     ];
-
-// let caClientPath = pathsToCheck.find(p => fs.existsSync(p));
 
 async function enrollOrgCA() {
   const base = process.cwd();
@@ -2321,24 +2271,6 @@ async function substituteEnvVariables(input, env) {
   });
 }
 
-// async function prepareChaincodeImage(cc_folder, cc_name){
-//   //build_chaincode_image
-
-//   const cmd0 = `docker build -t ${cc_name}:latest ${cc_folder}`;
-//   const cmd1 = `docker tag ${cc_name}:latest ${GHCR_IO}/${cc_name}:latest`;
-//   const cmd2 = `docker push ${GHCR_IO}/${cc_name}:latest`;
-
-
-//   const { stdout0, stderr0 } = await execAsync(cmd0);
-//   const { stdout1, stderr1 } = await execAsync(cmd1);
-//   const { stdout2, stderr2 } = await execAsync(cmd2);
-
-//    process.env.CHAINCODE_IMAGE = `${GHCR_IO}/${cc_name}:latest`;
-
-
-//   if (stderr0) console.error("stderr:", stderr0);
-//   return {stdout0, stdout1, stdout2};
-// };
 
 async function prepareChaincodeImage(cc_folder, cc_name) {
   if (!process.env.GHCR_IO) {
@@ -2377,66 +2309,6 @@ async function prepareChaincodeImage(cc_folder, cc_name) {
   };
 }
 
-// async function packageChaincode(cc_name, cc_label, cc_package){
-
-//   const cc_folder = path.dirname(cc_package);
-//   const archive_name = path.basename(cc_package);
-
-//   await fsp.mkdir(cc_folder, { recursive: true });
-
-//   console.log(`Packaging ccaas chaincode ${cc_label}`);
-
-//   const peerName = "org1-peer1";
-
-//   const cc_default_address=`${peerName}-ccaas-${cc_name}:9999`
-//   const cc_address = process.env.TEST_NETWORK_CHAINCODE_ADDRESS || cc_default_address;
-
-//    // Build paths
-//   const connectionJson = path.join(cc_folder, "connection.json");
-//   const metadataJson = path.join(cc_folder, "metadata.json");
-//   const codeTarGz = path.join(cc_folder, "code.tar.gz");
-
-//   // Write connection.json
-//   await fsp.writeFile(connectionJson, JSON.stringify({
-//       address: cc_address,
-//       dial_timeout: "10s",
-//       tls_required: false
-//   }, null, 2));
-
-//   // Write metadata.json
-//   await fsp.writeFile(metadataJson, JSON.stringify({
-//       type: "ccaas",
-//       label: cc_label
-//   }, null, 2));
-
-//   // Create code.tar.gz (contains only connection.json)
-//   await tar.create(
-//       {
-//           gzip: true,
-//           file: codeTarGz,
-//           cwd: cc_folder
-//       },
-//       ["connection.json"]
-//   );
-
-//   // Create final archive (contains code.tar.gz and metadata.json)
-//   await tar.create(
-//       {
-//           gzip: true,
-//           file: cc_package,
-//           cwd: cc_folder
-//       },
-//       ["code.tar.gz", "metadata.json"]
-//   );
-
-//   // Cleanup
-//   // await fs.rm(codeTarGz);
-
-//   // Cleanup (Node 22 safe)
-//   await fsp.rm(codeTarGz, { force: true });
-
-//   console.log("Chaincode package created:", cc_package);
-// };
 
 async function packageChaincode(cc_name, cc_label, cc_package) {
 
@@ -2625,57 +2497,6 @@ async function launchChaincodeService(cc_name){
   }
 };
 
-// async function activateChaincode(cc_name, cc_package){
-//   const org="org1";
-//   const peers = ["peer1", "peer2"];
-//   const {CHAINCODE_IMAGE, DOMAIN, NGINX_HTTPS_PORT, ORDERER_TIMEOUT, CHAINCODE_ID, ORG1_NS, CHANNEL_NAME} = process.env;
-
-//   await setChaincodeId(cc_package);
-
-//   //Install chaincode
-//   for (let peer of peers){
-//     const base = process.cwd();
-//     const TEMP_DIR = `${base}/build`;
-    
-//     console.log(`Installing chaincode for org: ${org} peer: ${peer}`);
-
-
-//     const { stdout, stderr } = await execAsync(
-//       `peer lifecycle chaincode install ${cc_package}`,
-//       {
-//         env: {
-//           ...process.env,
-//           FABRIC_CFG_PATH: `${base}/config/${org}`,
-//           CORE_PEER_ADDRESS: `${org}-${peer}.${DOMAIN}:${NGINX_HTTPS_PORT}`,
-//           CORE_PEER_MSPCONFIGPATH: `${TEMP_DIR}/enrollments/${org}/users/rcaadmin/msp`,
-//           CORE_PEER_TLS_ROOTCERT_FILE: `${TEMP_DIR}/channel-msp/peerOrganizations/${org}/msp/tlscacerts/tlsca-signcert.pem`
-//         }
-//       }
-//     );
-
-
-//       if (stderr) console.error("stderr:",stderr);
-//       console.log(stdout);
-//   };
-
-//   const runLeg = async () => {
-
-//     try{
-//       //Approve and commit chaincode
-//       await approveChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID);
-//       await commitChaincode(cc_name, DOMAIN, NGINX_HTTPS_PORT, CHANNEL_NAME, ORDERER_TIMEOUT, CHAINCODE_ID);
-//       } catch (err) {
-//           console.error("Activate Chaincode Last Leg SETUP FAILED:", err);
-//           process.exit(1);
-//       }
-//   };
-
-//   await runLeg().catch(err => {
-//     console.log(err);
-//   })
-    
-// };
-
 async function activateChaincode(cc_name, cc_package){
     const org="org1";
     const peers = ["peer1", "peer2"];
@@ -2835,6 +2656,7 @@ const runSetup = async () => {
     // console.log("STEP 5: Checking Cert-Manager deployments...");
     // await checkCertMgDeployment();
     // console.log("Cert-Manager ready\n");
+
 
     await sleep(0.5 * 60 * 1000);
 

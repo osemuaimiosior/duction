@@ -126,8 +126,31 @@ etc
 kubectl delete all --all --all-namespaces
 
 
+Default AWS access portal URL (IPv4 only): https://d-9066001edf.awsapps.com/start
+Dual-stack AWS access portal URL: https://ssoins-722340301939620b.portal.us-east-1.app.aws
+Username: dowie
+One-time password: uY&i&y^_6OUzC6
 
 
+# AWS EKSCTL Installation step
 
+//Download
+ - curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" -o eksctl.tar.gz
 
+//extract it
+ - tar -xzf eksctl.tar.gz
 
+//move to /usr/local/bin
+ - sudo mv eksctl /usr/local/bin
+
+//Check eksctl version
+eksctl version
+
+//create a AWS EKS cukuster
+eksctl create cluster \
+  --name my-cluster \
+  --version 1.17 \
+  --region us-east-1 \
+  --nodegroup-name duction-nodes \
+  --node-type t2.micro \
+  --nodes 1
