@@ -116,3 +116,9 @@ Central coordinator on cheap VPS
 Meter compute time
 
 Add crypto or wallet payout later
+
+
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+
+System concept: https://chatgpt.com/share/6992ea58-ed84-8001-acb8-64a2fc4fd9f9

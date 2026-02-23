@@ -6,6 +6,7 @@ const app = express();
 const path = require('path');
 const { runSetup } = require('./network/setup');
 const v1Router = require('./router/v1');
+const v1CGPURouter = require('./router/CGPU/v1');
 const timeout = require('connect-timeout');
 
 
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
 
 // Routes
 app.use("/api/v1", v1Router);
+app.use("/api/cgpu/v1", v1CGPURouter);
 
 app.get("/health", (req, res) => {
   const healthInfo = {

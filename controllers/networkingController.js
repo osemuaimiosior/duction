@@ -74,6 +74,122 @@ const initIngress = async () => {
     }
 };
 
+const initNewTLSCertIssuer = async (req, res) => {
+
+    const namespace = req.params.NAME_SPACE;
+    
+    const kc = new k8s.KubeConfig();
+    kc.loadFromDefault();
+
+    const customApi = kc.makeApiClient(k8s.CustomObjectsApi);
+   
+
+    const b = process.cwd();
+    const filePath = `${b}/kube/root-tls-cert-issuer.yaml`;
+    const base = yaml.load(fs.readFileSync(filePath, "utf8"));
+
+    try {
+        const issuer = JSON.parse(JSON.stringify(base)); 
+        issuer.metadata.namespace = namespace;
+
+        await customApi.createNamespacedCustomObject(
+        "cert-manager.io",   // group
+        "v1",                // version
+        namespace,           // namespace
+        "issuers",           // plural
+        issuer               // body
+        );
+
+        console.log(`Created Issuer in namespace: ${namespace}`);
+
+    } catch (err) {
+
+        console.error(`Error creating issuer in ${namespace}: `, err.message);
+    };
+};
+
+const waitForNewTLSIssuerReady = async (req, res) => {
+
+    const timeoutMs = 3000;
+    const intervalMs = 2000;
+    
+    const issuerName = "root-tls-cert-issuer";
+
+    const namespace = req.params.NAME_SPACE;
+
+    console.log(`\n=== Checking Issuer in namespace: ${namespace} ===`);
+
+    const start = Date.now();  // timeout resets for each namespace
+
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const res = await customApi.getNamespacedCustomObject(
+          "cert-manager.io",
+          "v1",
+          namespace,
+          "issuers",
+          issuerName
+        );
+
+        const conditions = res.body.status?.conditions || [];
+        const ready = conditions.find(c => c.type === "Ready" && c.status === "True");
+
+        if (ready) {
+          console.log(`Issuer "${issuerName}" is Ready in namespace ${namespace}`);
+        //   break;  // go to next namespace
+        }
+
+        console.log(`Issuer in ${namespace} not ready yet...`);
+        } catch (err) {
+            console.log(`Issuer "${issuerName}" not found yet in ${namespace}`);
+        }
+
+      await new Promise(res => setTimeout(res, intervalMs));
+    }
+
+    // Did we fail to become ready?
+    if (Date.now() - start >= timeoutMs) {
+       console.log(`Timeout: Issuer "${issuerName}" not Ready in namespace ${namespace}`);
+    };
+
+    return true;
+};
+
+const generateNewTLS = async (req, res) => {
+
+    const ns = req.params.NAME_SPACE;
+    const org = req.params.ORGANIZATION;
+    const commonNameDomainName = req.params.COMMON_NAME_DOMAIN_NAME;
+
+    try {
+            let yamlFilePath = path.join(__dirname,`../kube/org-template/tls-cert-issuer.yaml`);
+            console.log(`Applying: ${yamlFilePath}`);
+
+            const fileContent = fs.readFileSync(yamlFilePath, "utf8");
+            let docs = yaml.loadAll(fileContent);
+
+             // Replace placeholders
+            docs = docs
+                .replace(/{{ORG}}/g, org)
+                .replace(/{{DOMAIN_NAME}}/g, commonNameDomainName);
+
+            for (const doc of docs) {
+            // Ensures namespace is set
+            if (!doc.metadata.namespace) {
+                doc.metadata.namespace = ns;
+            }
+
+            await client.create(doc);
+            console.log(`Created ${doc.kind}: ${doc.metadata.name}`);
+            }
+        } catch (err) {
+            console.error("TLS creation error:", err.body.reason || err.body.status);
+        };  
+};
+
 module.exports = {
-	initIngress
+	initIngress,
+    initNewTLSCertIssuer,
+    waitForNewTLSIssuerReady,
+    generateNewTLS
 }

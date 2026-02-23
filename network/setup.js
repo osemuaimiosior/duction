@@ -2704,7 +2704,7 @@ const runSetup = async () => {
 
     await sleep(0.5 * 60 * 1000);
 
-     console.log("STEP 12: Applying CA Yaml To Organisation Namespace...");
+    console.log("STEP 12: Applying CA Yaml To Organisation Namespace...");
     await applyCAYamlToNamespace("kube/org0/org0-ca.yaml", process.env.ORG0_NS);
     await applyCAYamlToNamespace("kube/org1/org1-ca.yaml", process.env.ORG1_NS);
     await applyCAYamlToNamespace("kube/org2/org2-ca.yaml", process.env.ORG2_NS);
