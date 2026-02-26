@@ -1,0 +1,124 @@
+# Architecture (Marketplace-Oriented)
+
+1️. Node Agent (Runs on contributor machines) Each participant runs:
+
+ - A small Go binary (5–20MB)
+
+ - Registers to your coordinator
+
+ - Reports: CPU cores, RAM, GPU type, Availability
+
+ - Executes sandboxed jobs
+
+
+2️. Lightweight Job Orchestrator (Central Service): Instead of EKS, run:
+
+ - 1 small VPS (DigitalOcean / Hetzner / AWS Lightsail)
+
+ - Docker only (no K8s)
+
+ - PostgreSQL
+
+ - Redis (for queue)
+
+  Cost: $10–20/month.
+
+
+3️. Containerized Job Execution On each node use:
+
+ - containerd
+
+ - Or plain Docker
+
+ - Or Firecracker (advanced stage)
+
+ - When a job arrives: Pull job container => Execute => Return result => Destroy container ( No need for Kubernetes scheduler ).
+
+# Technology Stack (Low Cost)
+
+ - Coordinator: Go API server, PostgreSQL, Redis queue, Docker
+
+ - Node: Go agent, Docker, gRPC or WebSocket connection
+
+ - Billing: Wallet system
+
+ - Meter usage by: CPU time, GPU time, RAM time
+
+
+
+- Phase-Based Strategy
+
+    1 VPS
+
+    Build node agent
+
+    Use Docker
+
+    Basic job queue
+
+    Manual payout logic
+
+ - Focus on proving:
+
+    Nodes connect
+
+    Jobs execute
+
+    Rewards calculated correctly
+
+    Phase 2
+
+ - Add:
+
+    Node reputation score
+
+    Slashing for failed jobs
+
+    Secure sandboxing
+
+    Auto-scaling logic
+
+    Phase 3 (Advanced)
+
+ - Then consider:
+
+Your own scheduler Or blockchain-based verification
+
+ - Instead of running Fabric on EKS, run it on:
+
+2–3 small VMs
+
+Or even bare metal machines
+
+Fabric doesn't require Kubernetes.
+
+🔥 Realistic Advice
+
+Build full Kubernetes infra
+
+
+ - Do:
+
+Build a minimal distributed agent network
+
+Validate demand
+
+Prove job execution reliability
+
+ - Scale
+
+Build a Go-based node agent
+
+Use WebSocket persistent connections
+
+Central coordinator on cheap VPS
+
+Meter compute time
+
+Add crypto or wallet payout later
+
+
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+
+System concept: https://chatgpt.com/share/6992ea58-ed84-8001-acb8-64a2fc4fd9f9

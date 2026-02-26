@@ -4,16 +4,9 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const {
-    createNS, 
-    pvcApply, 
-    initIngress, 
-    applyYamlFromUrl,
-    checkCertMgDeployment,
-    waitForNginxIngress,
-    runSetup
-  } = require('./network/setup');
-// const v1Router = require('./router/v1');
+const { runSetup } = require('./network/setup');
+const v1Router = require('./router/v1');
+// const v1CGPURouter = require('./router/CGPU/v1');
 const timeout = require('connect-timeout');
 
 
@@ -49,7 +42,8 @@ app.use((req, res, next) => {
 });
 
 // Routes
-// app.use("/api/v1", v1Router);
+app.use("/api/v1", v1Router);
+// app.use("/api/cgpu/v1", v1CGPURouter);
 
 app.get("/health", (req, res) => {
   const healthInfo = {
@@ -65,21 +59,21 @@ app.get("/health", (req, res) => {
 // app.use(express.static(path.join(__dirname)));
 
 // Routes
-app.get(['/', '/index', '/index.html'], (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+// app.get(['/', '/index', '/index.html'], (req, res) => {
+//     res.sendFile(path.join(__dirname, 'index.html'));
+// });
 
-app.get(['/login', '/login.html'], (req, res) => {
-    res.sendFile(path.join(__dirname, 'login.html'));
-});
+// app.get(['/login', '/login.html'], (req, res) => {
+//     res.sendFile(path.join(__dirname, 'login.html'));
+// });
 
-app.get(['/register', '/register.html'], (req, res) => {
-    res.sendFile(path.join(__dirname, 'register.html'));
-});
+// app.get(['/register', '/register.html'], (req, res) => {
+//     res.sendFile(path.join(__dirname, 'register.html'));
+// });
 
-app.get(['/dashboard', '/dashboard.html'], (req, res) => {
-    res.sendFile(path.join(__dirname, 'dashboard.html'));
-});
+// app.get(['/dashboard', '/dashboard.html'], (req, res) => {
+//     res.sendFile(path.join(__dirname, 'dashboard.html'));
+// });
 
 app.listen(PORT,  () => {
   console.log(`Server is running on port ${PORT}`);

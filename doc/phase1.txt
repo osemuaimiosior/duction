@@ -1,0 +1,82 @@
+Phase One: Centralized scheduler + GPU cluster
+
+///////////////////////////////////////////////////////////////////////
+
+Work flow
+
+///////////////////////////////////////////////////////////////////////
+
+
+Build a system where:
+
+- Client submits inference job
+
+- Central scheduler accepts job
+
+- Scheduler assigns job to available GPU node
+
+- Node runs OpenCL C inference
+
+- Result returned to scheduler
+
+- Scheduler sends result back to client
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Control plane
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+A. API Gateway (Public Entry)
+
+Receives: Model ID, Input data, Authentication token
+
+Responsibilities: Validate request, Store job, Return job ID
+
+
+B. Central Scheduler (Brain) - This is your control plane.
+
+Responsibilities: Maintain registry of GPU nodes, Track GPU capacity, Assign jobs, Retry failed jobs, Enforce timeout, Track usage
+
+Think of it like a lightweight version of: Kubernetes scheduler Or AWS Batch but much simpler.
+
+
+
+C. Job Queue (Critical) - Do NOT directly push jobs to nodes.
+
+Use a queue: Redis streams, NATS, Kafka (overkill for MVP)
+
+Why?
+
+Because:
+
+- Nodes pull jobs when ready
+- System becomes fault tolerant
+- Easy scaling
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+Data plane
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+D. GPU Worker Nodes
+
+Each node runs: Lightweight agent, OpenCL runtime, Your compiled C inference engine
+
+Node responsibilities:
+
+- Register with scheduler
+
+- Report hardware: GPU model, VRAM, Compute units, Temperature (optional)
+
+- Pull job from queue
+
+- Run OpenCL inference
+
+- Return result
+
+- Report status
+
+Database: PostgreSQL (jobs + metrics)
