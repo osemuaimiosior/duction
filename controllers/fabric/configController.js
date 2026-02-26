@@ -89,6 +89,82 @@ const createNewConfigMap = async (req, res) => {
   }
 };
 
+const creatingCABuildDirectory = async (req, res) => {
+  const org = req.params.ORGANISATION;
+  fs.mkdir(`${process.cwd()}/build/cas/${org}-ca`, { recursive: true }, (err) => {
+        if (err) console.log(`Error while creating directory ${org}-ca\n`);
+      });
+}
+
+// const createNewGenesisBlock = async (req, res) => {
+//   console.log("Creating channel genesis block");
+
+//   const CHANNEL_NAME = req.params.CHANNEL_NAME;
+//   const base = process.cwd();
+//   let profile;
+//   let inputFile;
+  
+//   const outputFile = `${base}/build/configtx.yaml`;
+
+//   if (process.env.ORDERER_TYPE === "bft"){
+//     inputFile = `${base}/config/ordererOrg-template/bft/configtx-template.yaml`;
+//     profile = "ChannelUsingBFT";
+//   } else {
+//     inputFile = `${base}/config/ordererOrg-template/configtx-template.yaml`;
+//     profile = "TwoOrgsApplicationGenesis";
+//   }
+
+//   try {
+//     // 1. Read template
+//     let template = await fsp.readFile(inputFile, "utf8");
+
+//     // 2. Substitute environment variables
+//     // const rendered = await substituteEnvVariables(template, process.env);
+
+//     template = template
+//         .replace(/{{CHAINCODE_NAME}}/g, cc_name)
+//         .replace(/{{CHAINCODE_ID}}/g, CHAINCODE_ID)
+//         .replace(/{{CHAINCODE_IMAGE}}/g, CHAINCODE_IMAGE)
+//         .replace(/{{GHCR_SECRET_NAME}}/g, GHCR_SECRET_NAME)
+//         .replace(/{{PEER_NAME}}/g, peer);
+
+//     // 3. Write output configtx.yaml
+//     await fsp.writeFile(outputFile, template, "utf8");
+//     console.log("configtx.yaml generated");
+
+//     // 4. Absolute path to configtxgen (IMPORTANT)
+//     const CONFIGTXGEN = path.join(base, "bin", "configtxgen");
+
+//     // Safety check
+//     await execAsync(`chmod +x ${CONFIGTXGEN}`);
+
+
+//     // 5. Run configtxgen
+//     const cmd = ` FABRIC_CFG_PATH=${base}/build \
+//         ${CONFIGTXGEN} \
+//         -profile ${profile} \
+//         -channelID ${CHANNEL_NAME} \
+//         -outputBlock ${base}/build/genesis_block.pb
+//       `;
+
+//     const anyOutput = await execAsync(cmd);
+//     console.log("genesis_block.pb generated");
+
+//     if(anyOutput.stdout) {
+//       console.log(anyOutput.stdout);
+//     } else if (anyOutput.stderr){
+//       console.log(anyOutput.stderr);
+//     }
+  
+//   } catch (err) {
+//     console.error("Error creating genesis block:", err.stderr || err);
+//   }
+// };
+
+
+
 module.exports = {
-	createNewConfigMap
+	createNewConfigMap,
+  creatingCABuildDirectory,
+  // createNewGenesisBlock
 }

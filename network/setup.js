@@ -1994,7 +1994,7 @@ const extractOrdererCert = async () => {
   };
 };
 
-const createGenesisBlock = async () => {
+const createGenesisBlock = async (req, res) => {
   console.log("Creating channel genesis block");
 
   const base = process.cwd();

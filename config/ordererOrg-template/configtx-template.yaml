@@ -19,13 +19,13 @@ Organizations:
   - &OrdererOrg
     # DefaultOrg defines the organization which is used in the sampleconfig
     # of the fabric.git development environment
-    Name: OrdererOrg
+    Name: {{OrdererOrg}}
 
     # ID to load the MSP definition as
-    ID: OrdererMSP
+    ID: {{OrdererMSP}}
 
     # MSPDir is the filesystem path which contains the MSP configuration
-    MSPDir: ./channel-msp/ordererOrganizations/org0/msp
+    MSPDir: ./channel-msp/ordererOrganizations/{{org}}/msp
 
     # Policies defines the set of policies at this level of the config tree
     # For organization policies, their canonical path is usually
@@ -33,18 +33,18 @@ Organizations:
     Policies:
       Readers:
         Type: Signature
-        Rule: "OR('OrdererMSP.member')"
+        Rule: "OR('{{OrdererMSP}}.member')"
       Writers:
         Type: Signature
-        Rule: "OR('OrdererMSP.member')"
+        Rule: "OR('{{OrdererMSP}}.member')"
       Admins:
         Type: Signature
-        Rule: "OR('OrdererMSP.admin')"
+        Rule: "OR('{{OrdererMSP}}.admin')"
 
     OrdererEndpoints:
-      - org0-orderer1.${ORG0_NS}.svc.cluster.local:6050
-      - org0-orderer2.${ORG0_NS}.svc.cluster.local:6050
-      - org0-orderer3.${ORG0_NS}.svc.cluster.local:6050
+      - "{{ORG}}-orderer0.{{{NAME_SPACE}}}.svc.cluster.local:6050"
+      - "{{ORG}}-orderer1.{{{NAME_SPACE}}}.svc.cluster.local:6050"
+      - "{{ORG}}-orderer2.{{{NAME_SPACE}}}.svc.cluster.local:6050"
 
   - &Org1
     # DefaultOrg defines the organization which is used in the sampleconfig
