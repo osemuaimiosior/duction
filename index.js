@@ -1,6 +1,6 @@
 // require('dotenv').config();
 
-// const cron = require('node-cron');
+const cron = require('node-cron');
 const express = require('express');
 const app = express();
 const path = require('path');
@@ -8,6 +8,7 @@ const { runSetup } = require('./network/setup');
 const v1Router = require('./router/v1');
 // const v1CGPURouter = require('./router/CGPU/v1');
 const timeout = require('connect-timeout');
+// const {sendHeartbeat} = require('./controllers/workNode/heartBeat')
 
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -51,7 +52,7 @@ app.get("/health", (req, res) => {
     "timestamp": new Date().toISOString(),
   };
   
-  console.log("🏥 HEALTH ENDPOINT ACCESSED!");  
+  console.log("HEALTH ENDPOINT ACCESSED!");  
   res.status(200).json(healthInfo);
 });
 

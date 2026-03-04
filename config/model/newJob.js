@@ -1,6 +1,6 @@
 
 module.exports = (sequelize, DataTypes) => {
-  const InferenceJob = sequelize.define("InferenceJob", {
+  const newJob = sequelize.define("NewJob", {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
@@ -46,11 +46,11 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   InferenceJob.associate = (models) => {
-    InferenceJob.belongsTo(models.Client, {
+    InferenceJob.belongsTo(models.ClientAPI, {
       foreignKey: "clientId",
       onDelete: "CASCADE"
     });
   };
 
-  return InferenceJob;
+  return newJob;
 };

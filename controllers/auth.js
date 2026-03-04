@@ -2,14 +2,26 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 
 const generateClientToken = async () => {
-  const rawToken = crypto.randomBytes(32).toString("hex");
+  const prefix = "dc_live";
 
-  const hashedToken = await bcrypt.hash(rawToken, 12);
+  // Public ID (short lookup identifier)
+  const publicId = crypto.randomBytes(4).toString("hex"); 
+  // 8 hex chars
 
-  return { rawToken, hashedToken };
+  // Secret (high entropy)
+  const secret = crypto.randomBytes(32).toString("hex");
 
-  /**
-   * Important: Store hashedToken in DB, Send rawToken to client ONCE */
+  // Full token sent to client
+  const rawToken = `${prefix}_${publicId}.${secret}`;
+
+  // Only hash the secret part
+  const secretHash = await bcrypt.hash(secret, 12);
+
+  return {
+    rawToken,       // Send to client ONCE
+    publicId,       // Store in DB
+    secretHash      // Store in DB
+  };
 };
 
 module.exports = {
