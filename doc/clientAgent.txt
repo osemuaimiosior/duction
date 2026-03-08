@@ -43,3 +43,5 @@ Near Real-time Node monitoring
 Non Nvida GPU: node-os-utils
 
 Nvidia chip: NVML
+
+AMD Chips: ROCm System Management Interface (ROCm SMI)

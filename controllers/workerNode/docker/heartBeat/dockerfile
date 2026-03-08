@@ -1,0 +1,28 @@
+# Use lightweight Node runtime
+FROM node:20-alpine
+
+# Install system tools needed for hardware detection
+RUN apk add --no-cache \
+    bash \
+    util-linux \
+    pciutils \
+    curl \
+    ca-certificates
+
+# Working directory inside container
+WORKDIR /app
+
+# Copy package files first (better caching)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy application files
+COPY . .
+
+# Optional: expose port if your worker exposes API
+# EXPOSE 4000
+
+# Default command
+CMD ["node", "image/heartBeat.js"]

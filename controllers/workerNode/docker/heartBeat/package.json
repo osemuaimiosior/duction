@@ -1,0 +1,15 @@
+{
+  "name": "heartbeat",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "heartBeat.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "node-os-utils": "^2.0.1"
+  }
+}
