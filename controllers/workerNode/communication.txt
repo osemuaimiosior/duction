@@ -1,0 +1,23 @@
+/// Advanced
+
+Worker Nodes
+     │
+     ▼
+MQTT Broker (self-hosted)
+     │
+     ▼
+Scheduler
+     │
+     ▼
+Postgres
+
+
+// Start up
+
+Scheduler
+   │
+   ▼
+Redis Pub/Sub
+   │
+   ▼
+Worker Nodes

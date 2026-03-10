@@ -3,9 +3,22 @@ const os = require("os");
 const {OSUtils} = require("node-os-utils");
 const osu = new OSUtils();
 const nodeState = require("../../../config/model/nodeHeartBeat");
+const { RedisSMQ, ProducibleMessage } = require('redis-smq') ;
+const { ERedisConfigClient } = require('redis-smq-common') ;
 
-const mqtt = require("mqtt");
-const client = mqtt.connect("mqtt://test.mosquitto.org");
+// Simple initialization
+RedisSMQ.initialize(
+  {
+    client: ERedisConfigClient.IOREDIS,
+    options: { host: '127.0.0.1', port: 6379 }
+  },
+  (err) => {
+    if (err) console.error('RedisSMQ init failed:', err);
+  }
+);
+
+//Create producer
+const producer = RedisSMQ.createProducer();
 
 // const cpu = osu.cpu
 // const mem = osu.memory
@@ -168,6 +181,8 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         const nodePayload = {
     
           nodeId: nodeId,
+          
+          state: "heartBeat",
     
           cpuUsage: cpuInfo.data,
     
@@ -196,12 +211,20 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         }
     
         // Upsert instead of create (important for heartbeats)
-        console.log("Node payload", nodePayload)
-        // const node = await nodeState.findByPk(nodePayload.nodeId)
-        // if(node){
-        //   await node.update(nodePayload);
-        // }
-        // await node.save()
+        console.log("Node payload", nodePayload);
+        
+        producer.run((err) => {
+          if (err) return console.error('Producer failed:', err);
+          
+          const msg = new ProducibleMessage()
+            .setQueue(`${nodeId}`)
+            .setBody(`${nodePayload}`);
+          
+          producer.produce(msg, (err, ids) => {
+            if (err) console.error('Send failed:', err);
+            else console.log(`📨 Sent message: ${ids.join(', ')}`);
+          });
+        });
 
     
         console.log("Node heartbeat saved:", nodeId)
@@ -221,20 +244,6 @@ async function sendHeartBeat(){
   const hostName = process.env.Host_NAME;
   await getCPUStat(nodeCode, hostName);
 };
-
-// client.on("connect", () => {
-
-//   console.log("MQTT Connected")
-//   console.log("Node Channel:", NODE_CHANNEL)
-
-//   client.publish(`${NODE_CHANNEL}, `)
-
-//   setInterval(sendHeartBeat, 5000);
-// })
-
-// module.exports = {
-//   getCPUStat
-// };
 
 // Run every 5 seconds
 setInterval(sendHeartBeat, 60000);

@@ -1,5 +1,10 @@
-Object.keys(db).forEach(modelName => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
-});
+const sequelize = require("../db/postgresLocal");
+
+const NodeState = require("./nodeState")(sequelize, require("sequelize").DataTypes);
+
+const db = {};
+
+db.sequelize = sequelize;
+db.NodeState = NodeState;
+
+module.exports = db;

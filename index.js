@@ -1,18 +1,20 @@
 // require('dotenv').config();
 
-const cron = require('node-cron');
+// const cron = require('node-cron');
 const express = require('express');
 const app = express();
 const path = require('path');
 const { runSetup } = require('./network/setup');
-const v1Router = require('./router/v1');
-// const v1CGPURouter = require('./router/CGPU/v1');
+// const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
-// const {sendHeartbeat} = require('./controllers/workNode/heartBeat')
+// const db = require("./config/model");
+const nodeState = require("./config/model/nodeHeartBeat");
+const sequelize = require('./config/db/postgresLocal');
+const { Op } = require("sequelize");
 
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-
+// connectDB()
 console.log(`Starting application with NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`Environment variables loaded:`);
 console.log(`- PORT: ${process.env.PORT}`);
@@ -26,11 +28,6 @@ app.use((req, res, next) => {
   if (!req.timedout) next();
 });
 
-// Connect to database
-// connectDB().catch(err => {
-//   console.error('Database connection failed:', err);
-//   process.exit(1);
-// });
 
 // Middleware
 app.use(express.urlencoded({ extended: false }));
@@ -43,7 +40,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/api/v1", v1Router);
+// app.use("/api/v1", v1Router);
 // app.use("/api/cgpu/v1", v1CGPURouter);
 
 app.get("/health", (req, res) => {
@@ -56,34 +53,51 @@ app.get("/health", (req, res) => {
   res.status(200).json(healthInfo);
 });
 
-// Serve static files
-// app.use(express.static(path.join(__dirname)));
 
-// Routes
-// app.get(['/', '/index', '/index.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'index.html'));
-// });
 
-// app.get(['/login', '/login.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'login.html'));
-// });
+//If heartbeat > 15 seconds old → node offline
+// setInterval(async () => {
 
-// app.get(['/register', '/register.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'register.html'));
-// });
+//   const cutoff = new Date(Date.now() - 15000);
 
-// app.get(['/dashboard', '/dashboard.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'dashboard.html'));
-// });
+//   await nodeState.update(
+//     { nodeStatus: "offline" },
+//     {
+//       where: {
+//         lastHeartbeat: {
+//           [Op.lt]: cutoff
+//         }
+//       }
+//     }
+//   );
 
-app.listen(PORT,  () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// }, 10000);
+
+
+async function startServer() {
+  try {
+    await sequelize.authenticate();
+    console.log("PostgreSQL connected");
+
+     await sequelize.sync({ alter: true }); //dev mode
+    //  await db.sequelize.sync({ alter: true }); //prod mode
+    console.log("Models synchronized");
+
+    app.listen(3000, () => {
+      console.log("Server running on port 3000");
+    });
+
+  } catch (err) {
+    console.error("DB connection failed:", err);
+  }
+}
+
+startServer();
 
 ////<======================= fabric network startup ======>>////
 
 // Start sequential workflow:
-runSetup();
+// runSetup();
 
 ////<======================= fabric network startup ======>>////
 

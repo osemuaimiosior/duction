@@ -27,9 +27,15 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "fs-extra": "^11.3.2",
-    "ioredis": "^5.9.3",
+    "ioredis": "^5.10.0",
+    "mongoose": "^9.2.4",
     "mqtt": "^5.15.0",
     "nodemon": "^3.1.11",
+    "pg": "^8.20.0",
+    "pg-hstore": "^2.3.4",
+    "redis-smq": "^9.0.14",
+    "redis-smq-common": "^9.0.14",
+    "sequelize": "^6.37.8",
     "tar": "^7.5.2"
   }
 }

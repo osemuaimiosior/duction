@@ -5,18 +5,26 @@ const os = require("os")
 const { execSync } = require("child_process");
 const crypto = require("crypto")
 const nodeState = require("../../../../../config/model/nodeHeartBeat");
+const { RedisSMQ, EQueueType, EQueueDeliveryModel, ProducibleMessage } = require('redis-smq') ;
+const { ERedisConfigClient } = require('redis-smq-common') ;
 
-const mqtt = require("mqtt");
-// const HEARTBEAT_INTERVAL = 5000
-
-// MQTT Broker (replace with your production broker)
-const client = mqtt.connect("mqtt://test.mosquitto.org")
+// Simple initialization
+RedisSMQ.initialize(
+  {
+    client: ERedisConfigClient.IOREDIS,
+    options: { host: '127.0.0.1', port: 6379 }
+  },
+  (err) => {
+    if (err) console.error('RedisSMQ init failed:', err);
+  }
+);
 
 // Unique node ID
 const NODE_ID =
   os.hostname() + "-" + crypto.randomBytes(4).toString("hex")
 
-const NODE_CHANNEL = `node/${NODE_ID}`
+const NODE_CHANNEL = `node:${NODE_ID}`;
+
 
 
 /////Process flow
@@ -87,74 +95,12 @@ const logicDetection = async () => {
 
 }
 
-const commandExists = (cmd) => {
-  try {
-    execSync(`command -v ${cmd}`, { stdio: "ignore" })
-    return true
-  } catch {
-    return false
-  }
-}
 
 //////////////////////// CPU Monitoring ////////////////////////////////
 
 const cpu = osu.cpu
 const mem = osu.memory
 const overV = osu.overview()
-
-// let nodeInfo = {
-//   CPU_DATA: {
-//         success: false,
-//         data: 0.00, // CPU usage % utilization
-//         timestamp: 0, // Measurement time
-//         cached: false,
-//         platform: '' // OS
-//       },
-//   MEMORY_DATA: {
-//         success: true,
-//         data: {
-//           total: DataSize { bytes: 5158723584 }, // Total RAM
-//           available: DataSize { bytes: 2806730752 }, // Available RAM
-//           used: DataSize { bytes: 2351992832 }, // Used RAM
-//           free: DataSize { bytes: 2369638400 }, // Free RAM
-//           cached: DataSize { bytes: 407662592 },
-//           buffers: DataSize { bytes: 128364544 },
-//           usagePercentage: 45.5925345427463
-//         },
-//         timestamp: 1772802409878,
-//         cached: false,
-//         platform: 'linux'
-//       },
-//   SYSTEM_DATA: {
-//             hostname: 'Osemudiamhen',
-//             platform: 'linux',
-//             distro: 'linux',
-//             release: '6.6.87.2-microsoft-standard-WSL2',
-//             kernel: 'unknown',
-//             arch: 'x86_64',
-//             uptime: 198408360,
-//             uptimeSeconds: 198408.36,
-//             bootTime: 1772604001294,
-//             loadAverage: [Object],
-//             userCount: undefined,
-//             processCount: undefined,
-//             time: 1772802409655,
-//             timezone: 'Africa/Lagos'
-//           },
-
-//   SYSTEM_PROCESS_DATA: {
-//             total: 0,
-//             running: 0,
-//             sleeping: 0,
-//             waiting: 0,
-//             zombie: 0,
-//             stopped: 0,
-//             unknown: 0,
-//             totalCpuUsage: 0,
-//             totalMemoryUsage: [DataSize]
-//           }
-// };
-
 
 async function getCPUStat ()  {
     /**
@@ -325,9 +271,7 @@ async function getCPUStat ()  {
 
     }
 
-    // Upsert instead of create (important for heartbeats)
-    console.log("Node payload", nodePayload)
-    // await nodeState.create(nodePayload)
+    await nodeRegistry(nodePayload);
 
     console.log("Node heartbeat saved:", nodeId)
 
@@ -340,8 +284,6 @@ async function getCPUStat ()  {
    * Scalling model - When you reach 10k+ nodes, storing heartbeats directly in SQL becomes slow. Instead use below:
    * 
    * Worker Nodes
-        ↓
-      MQTT
         ↓
       Redis (live node state)
         ↓
@@ -379,28 +321,64 @@ async function getCPUStat ()  {
 // MQTT CONNECTION
 //////////////////////////////////////////////////////////////
 
-client.on("connect", () => {
+// client.on("connect", () => {
 
-  console.log("MQTT Connected")
-  console.log("Node Channel:", NODE_CHANNEL)
+//   console.log("MQTT Connected")
+//   console.log("Node Channel:", NODE_CHANNEL)
 
-  client.subscribe(`${NODE_CHANNEL}`)
+//   client.subscribe(`${NODE_CHANNEL}`)
 
-  // setInterval(getCPUStat, HEARTBEAT_INTERVAL)
-})
+//   // setInterval(getCPUStat, HEARTBEAT_INTERVAL)
+// })
 
-client.on("message", (topic, message) => {
+// client.on("message", (topic, message) => {
 
-  if (topic === `${NODE_CHANNEL}`) {
-    const job = JSON.parse(message.toString())
+//   if (topic === `${NODE_CHANNEL}`) {
+//     const job = JSON.parse(message.toString())
 
-    console.log("Received Job:", job)
-  }
+//     console.log("Received Job:", job)
+//   }
 
-})
+// })
+
+async function nodeRegistry(nodePayload) {
+
+  const existingNode = await nodeState.findOne({
+    where: { nodeId: nodePayload.nodeId }
+  }).exec();
+
+  if (existingNode) {
+    // await existingNode.update(nodePayload);
+    console.log("Node details already exsit...Invalid registration")
+  } else {
+    await nodeState.create(nodePayload);
+
+    //Create Queue
+  const queueManager = RedisSMQ.createQueueManager();
+  queueManager.save(
+    `${NODE_CHANNEL}`,
+    EQueueType.LIFO_QUEUE,
+    EQueueDeliveryModel.POINT_TO_POINT,
+    (err) => {
+      if (err) console.error('Queue creation failed:', err);
+      else console.log('Queue created');
+    }
+  );
+  };
+}
+
+// const runSetup = async () => {
+
+//   try {
+//     await logicDetection();
+
+//   } catch (err) {
+//     console.error("SETUP FAILED:", err);
+//     process.exit(1);
+//   }
+// };
 
 logicDetection();
-
 
 //Docker container monitoring tool: cAdvisor, Prometheus etc
 

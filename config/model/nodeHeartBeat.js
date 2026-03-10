@@ -1,11 +1,17 @@
-module.exports = (sequelize, DataTypes) => {
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db/postgresLocal');
 
-  const nodeState = sequelize.define("nodeState", {
+  const NodeState = sequelize.define("NodeState", {
 
     nodeId: {
       type: DataTypes.STRING,
       allowNull: false,
       primaryKey: true
+    },
+
+    state: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
 
     cpuUsage: {
@@ -29,6 +35,11 @@ module.exports = (sequelize, DataTypes) => {
     },
 
     gpuUtilization: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+
+    gpuMemoryTotal: {
       type: DataTypes.FLOAT,
       allowNull: true
     },
@@ -69,12 +80,13 @@ module.exports = (sequelize, DataTypes) => {
     },
 
     lastHeartbeat: {
-      type: DataTypes.DATE
+      type: DataTypes.DATE,
+      allowNull: true
     }
 
   }, {
+    tableName: "node_states",
     timestamps: true,
-
     indexes: [
       { fields: ["nodeStatus"] },
       { fields: ["jobStatus"] },
@@ -83,5 +95,4 @@ module.exports = (sequelize, DataTypes) => {
     ]
   });
 
-  return nodeState;
-};
+  module.exports = NodeState;
