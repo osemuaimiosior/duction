@@ -1,0 +1,22 @@
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    ocl-icd-opencl-dev \
+    opencl-headers \
+    clinfo \
+    nodejs \
+    npm
+
+WORKDIR /app
+
+COPY worker.c .
+COPY kernel.cl .
+COPY worker.js .
+COPY package.json .
+
+RUN gcc worker.c -o mc -lOpenCL
+
+RUN npm install
+
+CMD ["node","worker.js"]

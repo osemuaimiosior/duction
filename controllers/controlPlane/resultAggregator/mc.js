@@ -1,0 +1,1 @@
+//globalMean = sum(results) / totalRuns

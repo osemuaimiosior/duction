@@ -17,3 +17,5 @@ To make this commercial grade, you should add:
 ✔ portfolio simulation
 ✔ GPU memory batching
 ✔ multi-asset simulations
+
+derivatives pricing for banks

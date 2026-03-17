@@ -1,0 +1,14 @@
+step 1. 
+
+docker build -t montecarlo-node .
+
+step 2. 
+
+Docker Hub
+
+docker tag montecarlo-node yourdockerhub/montecarlo-node
+docker push yourdockerhub/montecarlo-node
+
+Private registry
+
+registry.yourdomain.com/montecarlo-node

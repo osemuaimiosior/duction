@@ -1,72 +1,93 @@
+// ==============================
+// Node Environment & Heartbeat Script
+// ==============================
+
+// Import OS utilities for monitoring CPU, memory, disk, and system stats
 const {OSUtils} = require("node-os-utils");
 const osu = new OSUtils();
-// const nvml = require('node-nvml');
-const os = require("os")
-const { execSync } = require("child_process");
-const crypto = require("crypto")
-const nodeState = require("../../../../../config/model/nodeHeartBeat");
-const { RedisSMQ, EQueueType, EQueueDeliveryModel, ProducibleMessage } = require('redis-smq') ;
-const { ERedisConfigClient } = require('redis-smq-common') ;
 
-// Simple initialization
+// Import standard Node.js modules
+const os = require("os"); // For hostname, CPU cores, etc.
+const { execSync } = require("child_process"); // For running shell commands
+const crypto = require("crypto"); // For generating unique node IDs
+
+// Import database model to store node heartbeat information: This table tracks all active nodes and their health metrics
+const nodeState = require("../../../../../config/model/nodeHeartBeat");
+
+// Import RedisSMQ modules for sending node metrics to queues
+const { RedisSMQ, EQueueType, EQueueDeliveryModel, ProducibleMessage } = require('redis-smq');
+const { ERedisConfigClient } = require('redis-smq-common');
+// const { spawn } = require("child_process");
+const { execSync } = require("child_process");
+
+
+/**
+ * Function: run
+ * ------------------
+ * A helper to run shell commands synchronously and print output. Useful for setup scripts or testing GPU availability
+ */
+
+function run(cmd) {
+  console.log(`Running: ${cmd}`);
+  execSync(cmd, { stdio: "inherit" });
+}
+
+// ==============================
+// RedisSMQ Initialization
+// ------------------------------
+// Each node will send its heartbeat and system metrics via a Redis queue
 RedisSMQ.initialize(
   {
-    client: ERedisConfigClient.IOREDIS,
-    options: { host: '127.0.0.1', port: 6379 }
+    client: ERedisConfigClient.IOREDIS,  // Use ioredis client 
+    options: { host: '127.0.0.1', port: 6379 }// Local Redis instance
   },
   (err) => {
     if (err) console.error('RedisSMQ init failed:', err);
   }
 );
 
-// Unique node ID
+// ==============================
+// Unique Node Identification
+// ------------------------------
+// Every node has a unique NODE_ID combining hostname + random hex string. This ensures no two nodes accidentally overwrite each other's data
 const NODE_ID =
   os.hostname() + "-" + crypto.randomBytes(4).toString("hex")
 
 const NODE_CHANNEL = `node:${NODE_ID}`;
 
 
-
-/////Process flow
-
+// ==============================
+// Node Detection & Monitoring Flow
+// ------------------------------
 /**
- * step 1. Detect working OS
- * step 2. Detect GPU vendor
- * 
- * Node Start
-      │
-      ▼
-    Detect OS
-      │
-      ▼
-    Detect GPU vendor
-      │
-      ▼
-    Load monitoring module
-      │
-      ▼
-    Start heartbeat loop
-      │
-      ▼
-    Send metrics → scheduler
-
-| --------- | ----------------------------------------------- |
-| CPU node  | Monte Carlo simulations, scientific simulations |
-| GPU node  | AI inference, ML training, CUDA simulations     |
-
+ * Logic:
+ *
+ * 1. Detect Operating System
+ * 2. Detect GPU vendor (NVIDIA / AMD / none)
+ * 3. Load the appropriate monitoring module
+ * 4. Start heartbeat loop to send system metrics to scheduler
+ *
+ * CPU nodes handle:
+ * - Monte Carlo simulations
+ * - Scientific simulations
+ *
+ * GPU nodes handle:
+ * - AI inference
+ * - ML training
+ * - CUDA-based simulations
  */
-
-//Detection Logic
 
 const logicDetection = async () => {
 
   let gpuType = "none"
 
+  // Check if NVIDIA GPU is present
   try {
     execSync("nvidia-smi", { stdio: "ignore" })
     gpuType = "nvidia"
   } catch {}
 
+   // If no NVIDIA, check for AMD GPU
   if (gpuType === "none") {
     try {
       execSync("rocm-smi", { stdio: "ignore" })
@@ -76,31 +97,45 @@ const logicDetection = async () => {
 
   console.log("GPU Type:", gpuType)
 
+  // Load monitoring based on detected GPU type
   if (gpuType === "nvidia") {
-    const nvml = require("node-nvml")
+    const nvml = require("node-nvml") // NVIDIA GPU library
+
     nvml.init()
     console.log("NVIDIA GPU detected")
-    await getNvidiaStats(nvml)
+    await getNvidiaStats(nvml) // Function to collect NVIDIA stats (GPU utilization, memory, temperature)
   }
 
   else if (gpuType === "amd") {
     console.log("AMD GPU detected")
-    await getAMDStats()
+    await getAMDStats()  // Function to collect AMD GPU stats
   }
 
   else {
     console.log("CPU node")
-    await getCPUStat()
+    await getCPUStat() // Default CPU monitoring
   }
 
 }
 
 
-//////////////////////// CPU Monitoring ////////////////////////////////
+// ==============================
+// CPU Monitoring
+// ------------------------------
 
 const cpu = osu.cpu
 const mem = osu.memory
 const overV = osu.overview()
+
+
+/**
+ * Function: getCPUStat
+ * ------------------
+ * 1. Collect CPU, memory, and system stats
+ * 2. Prepare node heartbeat payload
+ * 3. Persist node info in database if first registration
+ * 4. Send metrics to Redis queue for scheduler consumption
+ */
 
 async function getCPUStat ()  {
     /**
@@ -114,12 +149,8 @@ async function getCPUStat ()  {
       }
      */
 
+    // Get CPU utilization
     const cpuInfo = await cpu.usage();
-    // console.log("CPU Info success:", cpuInfo.success);
-    // console.log("CPU Usage:", cpuInfo.data);
-    // console.log("CPU Usage Timestamp:", cpuInfo.timestamp);
-    // console.log("CPU Cached:", cpuInfo.cached);
-    // console.log("CPU OS Platform:", cpuInfo.platform);
 
     /**
      * Memory Output data
@@ -140,18 +171,10 @@ async function getCPUStat ()  {
       }
      */
 
+    
+    // Get memory utilization
     const memInfo = await mem.info();
-    // console.log("Memory Data success:", memInfo.success);
-    // console.log("Memory Data Platform:", memInfo.platform);
-    // console.log("Memory total RAM:", memInfo.data.total);
-    // console.log("Memory total RAM available:", memInfo.data.available);
-    // console.log("Memory total RAM used:", memInfo.data.used);
-    // console.log("Memory total RAM free:", memInfo.data.free);
-    // console.log("Memory total RAM cached:", memInfo.data.cached);
-    // console.log("Memory RAM timestamp:", memInfo.timestamp);
-    // console.log("Memory cached:", memInfo.cached);
   
-
     /**
      *   {
           platform: 'linux',
@@ -209,25 +232,12 @@ async function getCPUStat ()  {
         }
      */
 
+    // Get full system overview (hostname, uptime, disk, processes, network, etc.)
     const overVInfo = await overV;
-    // console.log("Processes Information",overVInfo.processes);
-    // console.log("System hostname:", overVInfo.system.hostname);
-    // console.log("System distro:", overVInfo.system.distro);
-    // console.log("System release:", overVInfo.system.release);
-    // console.log("System kernel:", overVInfo.system.kernel);
-    // console.log("System arch:", overVInfo.system.arch);
-    // console.log("System uptime:", overVInfo.system.uptime);
-    // console.log("System bootTime:", overVInfo.system.bootTime);
-    // console.log("System time:", overVInfo.system.time);
-    // console.log("System timezone:", overVInfo.system.timezone);
-    // console.log("System disk total:", overVInfo.disk.total);
-    // console.log("System disk used:", overVInfo.disk.used);
-    // console.log("System disk available:", overVInfo.disk.available);
-    // console.log("System disk usagePercentage:", overVInfo.disk.usagePercentage);
-    // console.log("System disks:", overVInfo.disk.disks);
 
   try {
 
+    // Prepare payload for this node
     const nodeId = NODE_CHANNEL
 
     // Convert bytes → GB
@@ -238,7 +248,9 @@ async function getCPUStat ()  {
 
     const uptimeSeconds = Math.floor(overVInfo.system.uptimeSeconds)
 
-    const now = new Date()
+    const now = new Date();
+
+    // Node scoring system for scheduling and load balancing
     const node_Score = (cpuCores * 5) + (ramFreeGB * 3) + (100 - cpuInfo.data) * 0.5
 
     const nodePayload = {
@@ -271,7 +283,8 @@ async function getCPUStat ()  {
 
     }
 
-    await nodeRegistry(nodePayload);
+    // Register node in DB and setup environment if not already registered
+    await nodeEnvSetupAndRegistry(nodePayload);
 
     console.log("Node heartbeat saved:", nodeId)
 
@@ -281,13 +294,12 @@ async function getCPUStat ()  {
 
   }
   /**
-   * Scalling model - When you reach 10k+ nodes, storing heartbeats directly in SQL becomes slow. Instead use below:
-   * 
-   * Worker Nodes
-        ↓
-      Redis (live node state)
-        ↓
-      Postgres (periodic snapshot)
+   * Scaling note:
+   * ----------------
+   * When you have 10k+ nodes, storing each heartbeat directly in SQL becomes slow.
+   * Instead:
+   * - Worker nodes → Redis (live state)
+   * - Periodic snapshot → Postgres
    */
     
 };
@@ -341,31 +353,47 @@ async function getCPUStat ()  {
 
 // })
 
-async function nodeRegistry(nodePayload) {
+// async function nodeEnvSetupAndRegistry(nodePayload) {
 
-  const existingNode = await nodeState.findOne({
-    where: { nodeId: nodePayload.nodeId }
-  }).exec();
+//   const existingNode = await nodeState.findOne({
+//     where: { nodeId: nodePayload.nodeId }
+//   }).exec();
 
-  if (existingNode) {
-    // await existingNode.update(nodePayload);
-    console.log("Node details already exsit...Invalid registration")
-  } else {
-    await nodeState.create(nodePayload);
+//   if (existingNode) {
+//     // await existingNode.update(nodePayload);
+//     console.log("Node details already exsit...Invalid registration")
+//   } else {
+//     await nodeState.create(nodePayload);
 
-    //Create Queue
-  const queueManager = RedisSMQ.createQueueManager();
-  queueManager.save(
-    `${NODE_CHANNEL}`,
-    EQueueType.LIFO_QUEUE,
-    EQueueDeliveryModel.POINT_TO_POINT,
-    (err) => {
-      if (err) console.error('Queue creation failed:', err);
-      else console.log('Queue created');
-    }
-  );
-  };
-}
+//   const kubectl = spawn("sudo apt update", "sudo apt install", "nvidia-driver-535", "nvidia-smi");
+  
+//   let stderr = "";
+//   let stdout = "";
+
+//   kubectl.stdout.on("data", d => stdout += d);
+//   kubectl.stderr.on("data", d => stderr += d);
+
+//   kubectl.on("close", code => {
+//     if (code !== 0) {
+//       reject(new Error(stderr));
+//     } else {
+//       resolve(stdout);
+//     }
+//   });
+
+//     //Create Queue
+//   const queueManager = RedisSMQ.createQueueManager();
+//   queueManager.save(
+//     `${NODE_CHANNEL}`,
+//     EQueueType.LIFO_QUEUE,
+//     EQueueDeliveryModel.POINT_TO_POINT,
+//     (err) => {
+//       if (err) console.error('Queue creation failed:', err);
+//       else console.log('Queue created');
+//     }
+//   );
+//   };
+// }
 
 // const runSetup = async () => {
 
@@ -378,6 +406,77 @@ async function nodeRegistry(nodePayload) {
 //   }
 // };
 
+async function nodeEnvSetupAndRegistry(nodePayload) {
+
+  const existingNode = await nodeState.findOne({
+    where: { nodeId: nodePayload.nodeId }
+  });
+
+  if (existingNode) {
+    console.log("Node already exists. Invalid registration");
+    return;
+  }
+
+  await nodeState.create(nodePayload);
+
+  console.log("Setting up node environment...");
+
+  try {
+    // Install GPU drivers and test GPU availability
+    // Step 1: Install GPU drivers
+    execSync("sudo apt update", { stdio: "inherit" });
+    execSync("sudo apt install -y nvidia-driver-535", { stdio: "inherit" });
+    execSync("nvidia-smi", { stdio: "inherit" });
+
+    // Step 2: Install Docker
+    execSync("sudo apt install -y docker.io", { stdio: "inherit" });
+    execSync("sudo systemctl start docker", { stdio: "inherit" });
+    execSync("sudo systemctl enable docker", { stdio: "inherit" });
+    execSync("docker --version", { stdio: "inherit" });
+
+    // Step 3: Install NVIDIA container runtime
+    execSync(
+      `distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && \
+      curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add - && \
+      curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list \
+      | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list`,
+      { shell: "/bin/bash", stdio: "inherit" }
+    );
+
+    execSync("sudo apt update", { stdio: "inherit" });
+    execSync("sudo apt install -y nvidia-container-toolkit", { stdio: "inherit" });
+    execSync("sudo nvidia-ctk runtime configure --runtime=docker", { stdio: "inherit" });
+    execSync("sudo systemctl restart docker", { stdio: "inherit" });
+
+    // Step 4: Test GPU docker
+    execSync(
+      "docker run --rm --gpus all nvidia/cuda:12.2.0-base nvidia-smi",
+      { stdio: "inherit" }
+    );
+
+    console.log("Node successfully configured!");
+
+  } catch (err) {
+    console.error("Node setup failed:", err.message);
+  }
+
+  // Create Redis queue for this node
+  const queueManager = RedisSMQ.createQueueManager();
+
+  queueManager.save(
+    `${NODE_CHANNEL}`,
+    EQueueType.LIFO_QUEUE,
+    EQueueDeliveryModel.POINT_TO_POINT,
+    (err) => {
+      if (err) console.error("Queue creation failed:", err);
+      else console.log("Queue created");
+    }
+  );
+};
+
+// ==============================
+// Start Node Detection & Monitoring
+// ------------------------------
 logicDetection();
 
 //Docker container monitoring tool: cAdvisor, Prometheus etc

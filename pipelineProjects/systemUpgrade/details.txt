@@ -1,0 +1,11 @@
+GPU-grade random number generation (Philox)
+AVX512 Monte Carlo (10× faster on your CPU)
+How hedge funds run 1 billion simulations per second
+
+
+//Monte Carlo engines
+Antithetic variance reduction => Cuts simulation variance by ~50%
+
+Sobol quasi-random sequences => Much faster convergence.
+
+Portfolio simulation => Multiple assets simultaneously.

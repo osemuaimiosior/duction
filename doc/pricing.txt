@@ -1,0 +1,15 @@
+//Pricing model
+
+Minimum runs = 10M runs
+Price = $0.20
+Minimum customer target = 1,000
+
+or
+
+Layer 1 — simulation pricing => $0.02 per 1M runs
+Layer 2 — subscription
+
+Example:
+
+Starter => $49/month
+Includes => 5 billion runs

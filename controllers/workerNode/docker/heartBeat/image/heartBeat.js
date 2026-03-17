@@ -1,37 +1,51 @@
-const axios = require("axios");
-const os = require("os");
-const {OSUtils} = require("node-os-utils");
-const osu = new OSUtils();
-const nodeState = require("../../../config/model/nodeHeartBeat");
-const { RedisSMQ, ProducibleMessage } = require('redis-smq') ;
-const { ERedisConfigClient } = require('redis-smq-common') ;
+// ==============================
+// Node Heartbeat Monitoring Script
+// ==============================
 
-// Simple initialization
+// Import necessary modules
+const axios = require("axios"); // For sending HTTP requests (currently unused)
+const os = require("os"); // Node.js built-in module for OS info
+const { OSUtils } = require("node-os-utils"); // Provides CPU, memory, disk stats easily
+const osu = new OSUtils(); // Initialize OS utilities
+const nodeState = require("../../../config/model/nodeHeartBeat"); // Database model for node heartbeats
+const { RedisSMQ, ProducibleMessage } = require('redis-smq'); // Redis-based message queue
+const { ERedisConfigClient } = require('redis-smq-common'); // Redis client enum
+
+// ==============================
+// RedisSMQ Initialization
+// ==============================
 RedisSMQ.initialize(
   {
-    client: ERedisConfigClient.IOREDIS,
-    options: { host: '127.0.0.1', port: 6379 }
+    client: ERedisConfigClient.IOREDIS, // Using ioredis client
+    options: { host: '127.0.0.1', port: 6379 } // Redis server connection
   },
   (err) => {
     if (err) console.error('RedisSMQ init failed:', err);
   }
 );
 
-//Create producer
+// Create a message producer to send heartbeat data
 const producer = RedisSMQ.createProducer();
 
-// const cpu = osu.cpu
-// const mem = osu.memory
-// const overV = osu.overview()
+// ==============================
+// Global Variables
+// ==============================
 
-let NODE_CHANNEL ="";
-const cpuCores = os.cpus().length
+let NODE_CHANNEL =""; // Redis queue for this node
+const cpuCores = os.cpus().length; // Number of CPU cores on the machine
+
+
+// ==============================
+// Function: getCPUStat
+// Purpose: Collect system stats and send heartbeat
+// ==============================
 
 async function getCPUStat(NODE_CODE, HOST_NAME){
 
+  // Shortcuts for OS utilities
   const cpu = osu.cpu
   const mem = osu.memory
-  const overV = osu.overview()
+  const overV = osu.overview() // Full overview of system stats
     /**
      * CPU Usage ouput data
      * {
@@ -42,6 +56,10 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         platform: 'linux' // OS
       }
      */
+
+  // ------------------------------
+  // Get CPU Usage
+  // ------------------------------
 
     const cpuInfo = await cpu.usage();
     console.log("CPU Info success:", cpuInfo.success);
@@ -68,6 +86,10 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         platform: 'linux'
       }
      */
+
+  // ------------------------------
+  // Get Memory Usage
+  // ------------------------------
 
     const memInfo = await mem.info();
     console.log("Memory Data success:", memInfo.success);
@@ -138,6 +160,11 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         }
      */
 
+  // ------------------------------
+  // Get Full System Overview
+  // Includes disk, network, processes, uptime, etc.
+  // ------------------------------
+
     const overVInfo = await overV;
     // console.log("Processes Information",overVInfo.processes);
     console.log("System hostname:", overVInfo.system.hostname);
@@ -148,7 +175,7 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
     if( expectedID !== NODE_CHANNEL){
         console.log(`Invalid from ${NODE_CHANNEL}`);
 
-        //Disable node in db
+        // TODO: Disable this node in the database if it doesn't match
     }
 
     console.log("System distro:", overVInfo.system.distro);
@@ -167,7 +194,11 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
 
     try {
     
-        const nodeId = NODE_CHANNEL
+      // ------------------------------
+      // Prepare Node Heartbeat Payload
+      // ------------------------------
+
+      const nodeId = NODE_CHANNEL
     
         // Convert bytes → GB
         const ramTotalGB = memInfo.data.total.bytes / (1024 ** 3)
@@ -175,9 +206,12 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
     
         const uptimeSeconds = Math.floor(overVInfo.system.uptimeSeconds)
     
-        const now = new Date()
+        const now = new Date();
+
+        // Node score calculation based on CPU cores, free RAM, and CPU usage
         const node_Score = (cpuCores * 5) + (ramFreeGB * 3) + (100 - cpuInfo.data) * 0.5
     
+        // Heartbeat payload to send to Redis queue or DB
         const nodePayload = {
     
           nodeId: nodeId,
@@ -213,12 +247,16 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         // Upsert instead of create (important for heartbeats)
         console.log("Node payload", nodePayload);
         
+        // ------------------------------
+        // Send Heartbeat to Redis Queue
+        // ------------------------------
+
         producer.run((err) => {
           if (err) return console.error('Producer failed:', err);
           
           const msg = new ProducibleMessage()
-            .setQueue(`${nodeId}`)
-            .setBody(`${nodePayload}`);
+            .setQueue(`${nodeId}`) // Queue name = node channel
+            .setBody(`${nodePayload}`); // Convert payload to string
           
           producer.produce(msg, (err, ids) => {
             if (err) console.error('Send failed:', err);
@@ -237,13 +275,20 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
     
 };
 
+// ==============================
+// Function: sendHeartBeat
+// Purpose: Read environment variables and trigger heartbeat
+// ==============================
+
 async function sendHeartBeat(){
-  const nodeCode = process.env.NODE_CODE;
+  const nodeCode = process.env.NODE_CODE; // Unique code for this node
   //make sure node-code exist in directory and get registered hostname
 
-  const hostName = process.env.Host_NAME;
+  const hostName = process.env.Host_NAME; // Hostname registration
   await getCPUStat(nodeCode, hostName);
 };
 
-// Run every 5 seconds
+// ==============================
+// Run the heartbeat every 60 seconds
+// ==============================
 setInterval(sendHeartBeat, 60000);
