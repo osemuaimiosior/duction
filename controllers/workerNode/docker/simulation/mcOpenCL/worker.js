@@ -3,7 +3,7 @@
 // ==============================
 
 // Import RedisSMQ to consume messages from Redis queues
-const { RedisSMQ } = require("redis-smq");
+const { RedisSMQ, ProducibleMessage } = require("redis-smq");
 
 // Import Node.js modules for executing external programs
 const { execFile } = require("child_process");
@@ -29,7 +29,6 @@ const nodeID =  os.hostname() + "-" + `${nodeCode}`;
 
 const consumer = RedisSMQ.createConsumer();
 
-
 /**
  * Function: simulate
  * ------------------------------
@@ -39,6 +38,7 @@ const consumer = RedisSMQ.createConsumer();
  * 2. If node is valid, start consuming messages from Redis queue
  * 3. For each job, call `runSimulation` function
  */
+
 async function simulate() {
   // Step 1 — Verify node registration
   const existingNode = await nodeState.findOne({
@@ -91,7 +91,19 @@ async function simulate() {
  * 3. Handles output and errors
  */
 
+// Create a RedisSMQ producer for sending results
+const producer = RedisSMQ.createProducer();
+
+/**
+ * Run a simulation job and send results to the aggregator
+ * @param {Object} job - Job object containing simulation parameters
+ *  Example: { id: "job123", modelType: "monte_carlo", runs: 1000000, S0: 100, K: 110, r: 0.05, sigma: 0.2, T: 1 }
+ */
+
 async function runSimulation(job) {
+
+  // Unique queue where aggregator listens for results
+  const RESULTS_QUEUE = "simulation-job-result";
 
   console.log("Running job:", job.modelType);
 
@@ -99,6 +111,11 @@ async function runSimulation(job) {
   const args = [
     job.runs, // Number of simulation iterations
     // Add more parameters if needed, e.g., input file paths
+    job.S0,
+    job.K,
+    job.r,
+    job.sigma,
+    job.T
   ];
 
   /**
@@ -113,12 +130,37 @@ async function runSimulation(job) {
     if (error) {
       console.error("Simulation error:", error);
       return;
-    }
+    };
 
-    // Step 2 — Log the simulation results
-    console.log("Result:", stdout);
+    // Parse stdout to extract the final option price
+    // Example stdout: "Option Price = 42.5678\n"
+    const result = parseFloat(stdout.trim());
+    console.log("Simulation result:", result);
+
+    // Package the result into a payload
+    const resultPayload = {
+      jobId: job.jobId,
+      nodeId: job.nodeId, // node that ran the simulation
+      modelType: job.modelType,
+      result: result,
+      runs: job.runs,
+      timestamp: new Date()
+    };
+
+    // Send the result to the aggregator via RedisSMQ
+    producer.run((err) => {
+      if (err) return console.error("Producer failed:", err);
+
+      const msg = new ProducibleMessage()
+        .setQueue(RESULTS_QUEUE)
+        .setBody(JSON.stringify(resultPayload));
+
+      producer.produce(msg, (err, ids) => {
+        if (err) console.error("Send failed:", err);
+        else console.log(`📨 Result sent to aggregator, message ID: ${ids.join(", ")}`);
+      });
+    });
   });
-
 };
 
 // ==============================

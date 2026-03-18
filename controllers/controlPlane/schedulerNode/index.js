@@ -94,7 +94,7 @@ const MAX_NODE_RUN = 1000000;
  * 5. Dispatch jobs to Redis queues
  */
 
-const scheduleJob = async (MODEL_TYPE, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
+const scheduleJob = async (MODEL_TYPE, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
 
   /**
    * Step 1 — Validate minimum simulation runs
@@ -207,6 +207,7 @@ const scheduleJob = async (MODEL_TYPE, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
     const node = nodes[i % nodes.length]
 
     jobs.push({
+      jobId: jobID,
       nodeId: node.nodeId,
       runs: chunks[i],
       modelType: MODEL_TYPE,
@@ -214,7 +215,7 @@ const scheduleJob = async (MODEL_TYPE, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
       simulationType: SIMULATION_TYPE
     })
 
-  }
+  };
 
   // if (!bestCandidate) {
   //   throw new Error("No suitable node available");
@@ -266,6 +267,7 @@ async function dispatchJob(job) {
    */
 
   const payload = JSON.stringify({
+    jobId: job.jobId,
     nodeId: job.nodeId,
     runs: job.runs,
     modelType: job.modelType,

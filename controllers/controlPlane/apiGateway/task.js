@@ -1,13 +1,10 @@
-// Import the database model used to store simulation jobs
-// This table keeps track of jobs submitted by clients
+// Import the database model used to store simulation jobs. This table keeps track of jobs submitted by clients
 
 const  newJobModel  = require("../../../config/model/newJob");
 
-// Import the scheduler responsible for distributing jobs
-// across compute nodes in the network
+// Import the scheduler responsible for distributing jobs across compute nodes in the network
 
 const {scheduleJob} = require("../schedulerNode/index");
-
 
 /**
  * API Controller: Create a new simulation job
@@ -63,7 +60,6 @@ const newJob = async (req, res) => {
       });
     };
 
-
     /**
      * Step 3 — Persist the Job in the Database
      *
@@ -105,13 +101,15 @@ const newJob = async (req, res) => {
      * - manage load balancing
      */
 
-    await scheduleJob(MODEL_TYPE, INPUT_DATA, minRuns, SIMULATION_TYPE);
+    const jobID = job.id;
+
+    await scheduleJob(MODEL_TYPE, jobID, INPUT_DATA, minRuns, SIMULATION_TYPE);
     
     return res.status(201).json({
       success: true,
 
       // Unique job identifier
-      jobId: job.id,
+      jobId: jobID,
 
       // Current job status
       status: job.status

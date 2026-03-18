@@ -118,7 +118,8 @@ int main(int argc, char *argv[])
     for(int i = 0; i < runs; i++)
         sum += results[i];
 
-    printf("Option Price = %f\n", sum / runs);
+    /* Print the result to stdout for Node.js to capture */
+    printf("%f\n", sum / runs);
 
     /* Cleanup */
     clFlush(command_queue);
