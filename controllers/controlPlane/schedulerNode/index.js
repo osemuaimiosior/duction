@@ -14,6 +14,10 @@
  */
 const nodeState = require("../../../config/model/nodeHeartBeat");
 
+const nodeJob = require("../../../config/model/job");
+
+const nodeJobChunk = require("../../../config/model/jobChunk");
+
 /**
  * Sequelize operator helpers used for advanced filtering (>, <, etc)
  */
@@ -94,26 +98,207 @@ const MAX_NODE_RUN = 1000000;
  * 5. Dispatch jobs to Redis queues
  */
 
-const scheduleJob = async (MODEL_TYPE, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
+// const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
 
-  /**
-   * Step 1 — Validate minimum simulation runs
-   */
+//   /**
+//    * Step 1 — Validate minimum simulation runs
+//    */
+//   const requireMinRuns = process.env.MIN_RUN_SIMULATION;
+
+//   if(RUNS < requireMinRuns){
+//     console.log(`Minimum simulation runds must be greater or equall to ${requireMinRuns}`)
+//   };
+
+//   /**
+//    * Step 2 — Query available compute nodes
+//    *
+//    * Only select nodes that:
+//    * - are online
+//    * - are currently idle
+//    * - have at least 4GB free RAM
+//    */
+  
+//   const nodes = await nodeState.findAll({
+//     where: {
+//       nodeStatus: "online",
+//       jobStatus: "idle",
+//       ramFree: {
+//         [Op.gt]: 4
+//       }
+//     }
+//   });
+
+//   /**
+//    * Step 3 — Node scoring (optional advanced scheduler)
+//    *
+//    * This section is currently commented out but demonstrates how nodes could be scored based on performance metrics.
+//    *
+//    * Example scoring formula:
+//    *
+//    * score =
+//    *   CPU power +
+//    *   available RAM +
+//    *   available GPU memory
+//    *
+//    * This allows intelligent node selection.
+//    */
+
+//   let bestCandidate = null;
+//   let bestScore = -Infinity;
+
+//   // for (const n of nodes) {
+
+//   //   if (!n.lastHeartbeat) continue;
+
+//   //   const heartbeatAge = Date.now() - new Date(n.lastHeartbeat).getTime();
+
+//   //   if (heartbeatAge > HEARTBEAT_TIMEOUT_MS) continue;
+
+//   //   const nodeScore =
+//   //     (n.cpuCores * (1 - n.cpuUsage)) * 2 +
+//   //     n.ramFree +
+//   //     (n.gpuMemoryFree || 0);
+
+//   //   if (nodeScore > bestScore) {
+
+//   //     bestScore = nodeScore;
+
+//   //     bestCandidate = {
+//   //       nodeId: n.nodeId,
+//   //       gpuMemoryFree: n.gpuMemoryFree
+//   //     };
+//   //   }
+//   // };
+
+//   /**
+//    * Step 4 — Split simulation runs into chunks
+//    *
+//    * Example:
+//    *
+//    * totalRuns = 10,000,000
+//    *
+//    * becomes
+//    *
+//    * [
+//    *   1,000,000,
+//    *   1,000,000,
+//    *   1,000,000,
+//    *   ...
+//    * ]
+//    *
+//    * Each chunk can be processed by a different node.
+//    */
+
+//   const chunks = splitRuns(RUNS, jobID);
+
+//   /**
+//    * Step 5 — Assign chunks to nodes
+//    *
+//    * Jobs are distributed using round-robin scheduling.
+//    *
+//    * Example:
+//    *
+//    * Node1 -> chunk1
+//    * Node2 -> chunk2
+//    * Node3 -> chunk3
+//    * Node1 -> chunk4
+//    */
+
+//   const jobs = []
+
+//   for (let i = 0; i < chunks.length; i++) {
+
+//     const node = nodes[i % nodes.length]
+
+//     jobs.push({
+//       jobId: jobID,
+//       nodeId: node.nodeId,
+//       clientId: CLIENT_ID,
+//       runs: chunks[i],
+//       modelType: MODEL_TYPE,
+//       inputData: INPUT_DATA,
+//       simulationType: SIMULATION_TYPE
+//     })
+
+//   };
+
+//   // if (!bestCandidate) {
+//   //   throw new Error("No suitable node available");
+//   // }
+
+//   /**
+//    * Safety check
+//    *
+//    * If no nodes are available the job cannot run.
+//    */
+
+//   if (!nodes.length) {
+//     throw new Error("No suitable node available");
+//   };
+
+//   /**
+//    * Step 6 — Dispatch jobs to nodes
+//    *
+//    * Each job chunk is pushed into the node's Redis queue. The compute node will consume this queue and run the simulation.
+//    */
+//   for (const job of jobs) {
+
+//     await dispatchJob(job);
+
+//   };
+
+//   /**
+//    * Step 7 — Return scheduling result
+//    */
+//   return {
+//     message: "Job scheduled",
+//     nodesUsed: nodes.length
+//   };
+// };
+
+const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
+
   const requireMinRuns = process.env.MIN_RUN_SIMULATION;
 
-  if(RUNS < requireMinRuns){
-    console.log(`Minimum simulation runds must be greater or equall to ${requireMinRuns}`)
-  };
+  if (RUNS < requireMinRuns) {
+    throw new Error(`Minimum runs must be >= ${requireMinRuns}`);
+  }
 
   /**
-   * Step 2 — Query available compute nodes
-   *
-   * Only select nodes that:
-   * - are online
-   * - are currently idle
-   * - have at least 4GB free RAM
+   * Create job row
    */
-  
+
+  await nodeJob.create({
+    clientId: CLIENT_ID,
+    jobId: jobID,
+    modelType: MODEL_TYPE,
+    simulationType: SIMULATION_TYPE,
+    inputData: INPUT_DATA,
+    totalRuns: RUNS,
+    status: "splitting"
+  });
+
+  /**
+   * Split runs into chunk rows
+   */
+
+  const chunkCount = await splitRuns(RUNS, jobID);
+
+  /**
+   * Fetch queued chunks
+   */
+
+  const chunks = await nodeJobChunk.findAll({
+    where: {
+      jobId: jobID,
+      status: "queued"
+    }
+  });
+
+  /**
+   * Get available nodes
+   */
+
   const nodes = await nodeState.findAll({
     where: {
       nodeStatus: "online",
@@ -124,133 +309,36 @@ const scheduleJob = async (MODEL_TYPE, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE)
     }
   });
 
-  /**
-   * Step 3 — Node scoring (optional advanced scheduler)
-   *
-   * This section is currently commented out but demonstrates how nodes could be scored based on performance metrics.
-   *
-   * Example scoring formula:
-   *
-   * score =
-   *   CPU power +
-   *   available RAM +
-   *   available GPU memory
-   *
-   * This allows intelligent node selection.
-   */
-
-  let bestCandidate = null;
-  let bestScore = -Infinity;
-
-  // for (const n of nodes) {
-
-  //   if (!n.lastHeartbeat) continue;
-
-  //   const heartbeatAge = Date.now() - new Date(n.lastHeartbeat).getTime();
-
-  //   if (heartbeatAge > HEARTBEAT_TIMEOUT_MS) continue;
-
-  //   const nodeScore =
-  //     (n.cpuCores * (1 - n.cpuUsage)) * 2 +
-  //     n.ramFree +
-  //     (n.gpuMemoryFree || 0);
-
-  //   if (nodeScore > bestScore) {
-
-  //     bestScore = nodeScore;
-
-  //     bestCandidate = {
-  //       nodeId: n.nodeId,
-  //       gpuMemoryFree: n.gpuMemoryFree
-  //     };
-  //   }
-  // };
+  if (!nodes.length) {
+    throw new Error("No nodes available");
+  }
 
   /**
-   * Step 4 — Split simulation runs into chunks
-   *
-   * Example:
-   *
-   * totalRuns = 10,000,000
-   *
-   * becomes
-   *
-   * [
-   *   1,000,000,
-   *   1,000,000,
-   *   1,000,000,
-   *   ...
-   * ]
-   *
-   * Each chunk can be processed by a different node.
+   * Round robin dispatch
    */
-
-  const chunks = splitRuns(RUNS);
-
-  /**
-   * Step 5 — Assign chunks to nodes
-   *
-   * Jobs are distributed using round-robin scheduling.
-   *
-   * Example:
-   *
-   * Node1 -> chunk1
-   * Node2 -> chunk2
-   * Node3 -> chunk3
-   * Node1 -> chunk4
-   */
-
-  const jobs = []
 
   for (let i = 0; i < chunks.length; i++) {
 
     const node = nodes[i % nodes.length]
 
-    jobs.push({
+    await dispatchJob({
+      chunkId: chunks[i].id,
       jobId: jobID,
       nodeId: node.nodeId,
-      runs: chunks[i],
+      runs: chunks[i].runs,
       modelType: MODEL_TYPE,
       inputData: INPUT_DATA,
       simulationType: SIMULATION_TYPE
-    })
+    });
 
-  };
+  }
 
-  // if (!bestCandidate) {
-  //   throw new Error("No suitable node available");
-  // }
-
-  /**
-   * Safety check
-   *
-   * If no nodes are available the job cannot run.
-   */
-
-  if (!nodes.length) {
-    throw new Error("No suitable node available");
-  };
-
-  /**
-   * Step 6 — Dispatch jobs to nodes
-   *
-   * Each job chunk is pushed into the node's Redis queue. The compute node will consume this queue and run the simulation.
-   */
-  for (const job of jobs) {
-
-    await dispatchJob(job);
-
-  };
-
-  /**
-   * Step 7 — Return scheduling result
-   */
   return {
     message: "Job scheduled",
-    nodesUsed: nodes.length
-  };
-};
+    chunkCount
+  }
 
+};
 /**
  * Dispatch Job to Redis Queue. Each node has its own queue:
  *
@@ -258,40 +346,125 @@ const scheduleJob = async (MODEL_TYPE, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE)
  *
  * This allows targeted job delivery.
  */
+
+// async function dispatchJob(job) {
+
+//   const queue = `node:${job.nodeId}`;
+
+//   const payload = {
+//     jobId: job.jobId,
+//     nodeId: job.nodeId,
+//     runs: job.runs,
+//     modelType: job.modelType,
+//     inputData: job.inputData,
+//     simulationType: job.simulationType
+//   };
+
+//   const payloadStr = JSON.stringify(payload);
+
+//   producer.run((err) => {
+
+//     if (err) return console.error("Producer failed:", err);
+
+//     const msg = new ProducibleMessage()
+//       .setQueue(queue)
+//       .setBody(payloadStr);
+
+//     producer.produce(msg, async (err, ids) => {
+
+//       if (err) return console.error("Send failed:", err);
+
+//       try {
+
+//         /**
+//          * Mark node busy
+//          */
+//         await nodeState.update(
+//           { jobStatus: "busy" },
+//           { where: { nodeId: job.nodeId } }
+//         );
+
+//         /**
+//          * Create job row
+//          */
+//         await nodeJob.create({
+//           jobId: job.jobId,
+//           nodeId: job.nodeId,
+//           runs: job.runs,
+//           status: "assigned",
+//           startedAt: new Date()
+//         });
+
+//         /**
+//          * Update job Chunk row
+//          */
+
+//         const jobChunkDetails = await nodeJobChunk.findOne({
+//           where: { jobId: job.jobId}
+//         });
+
+//         if(!jobChunkDetails) console.log("Invalid trx from line 403")
+        
+//         jobChunkDetails.nodeId = job.nodeId;
+//         jobChunkDetails.runs = job.runs;
+//         jobChunkDetails.status = "assigned";
+//         jobChunkDetails.startedAt = new Date();
+
+//         await jobChunkDetails.save();
+
+//         // await nodeJobChunk.update({
+//         //   jobId: job.jobId,
+//         //   nodeId: job.nodeId,
+//         //   runs: job.runs,
+//         //   status: "assigned",
+//         //   startedAt: new Date()
+//         // });
+
+//         console.log(`Sent message: ${ids.join(", ")}`);
+
+//       } catch (error) {
+
+//         console.error("DB error:", error);
+
+//       }
+
+//     });
+
+//   });
+// };
+
 async function dispatchJob(job) {
 
-  const queue = `${job.nodeId}`;
+  const queue = `node:${job.nodeId}`;
 
-  /**
-   * Serialize job payload
-   */
-
-  const payload = JSON.stringify({
+  const payload = {
     jobId: job.jobId,
+    chunkId: job.chunkId,
     nodeId: job.nodeId,
     runs: job.runs,
     modelType: job.modelType,
     inputData: job.inputData,
     simulationType: job.simulationType
-  });
+  };
 
-  /**
-   * Start producer and push message
-   */
+  const payloadStr = JSON.stringify(payload);
+
   producer.run((err) => {
-    if (err) return console.error('Producer failed:', err);
-    
+
+    if (err) return console.error("Producer failed:", err);
+
     const msg = new ProducibleMessage()
-      .setQueue(`${queue}`)
-      .setBody(`${payload}`);
-    
+      .setQueue(queue)
+      .setBody(payloadStr);
+
     producer.produce(msg, async (err, ids) => {
-      if (err) {
-        console.error('Send failed:', err)
-      } else {
+
+      if (err) return console.error("Send failed:", err);
+
+      try {
 
         /**
-         * Update node status to busy
+         * Mark node busy
          */
 
         await nodeState.update(
@@ -299,13 +472,34 @@ async function dispatchJob(job) {
           { where: { nodeId: job.nodeId } }
         );
 
-        console.log(`Sent message: ${ids.join(', ')}`);
-      }; 
+        /**
+         * Update chunk row
+         */
+
+        await nodeJobChunk.update(
+          {
+            nodeId: job.nodeId,
+            status: "assigned",
+            startedAt: new Date()
+          },
+          {
+            where: { id: job.chunkId }
+          }
+        );
+
+        console.log(`Sent message: ${ids.join(", ")}`);
+
+      } catch (error) {
+
+        console.error("DB error:", error);
+
+      }
+
     });
-  })
 
-};
+  });
 
+}
 /**
  * Split Simulation Runs into Chunks
  *
@@ -324,7 +518,37 @@ async function dispatchJob(job) {
  * This allows distributed execution.
  */
 
-function splitRuns(totalRuns) {
+// async function splitRuns(totalRuns, job_ID) {
+
+//   const chunks = []
+//   let remaining = totalRuns
+
+//   while (remaining > 0) {
+
+//     const chunkSize = Math.min(MAX_NODE_RUN, remaining)
+
+//     chunks.push(chunkSize)
+
+//     remaining -= chunkSize
+//   }
+
+//   const nodeJobChunkDetails = await nodeJobChunk.findOne({
+//     where: { jobId: job_ID}
+//   });
+
+//   if(nodeJobChunkDetails) console.log("Invalid job split line 383");
+
+//   const jobChunkPayload = {
+//     jobId: job_ID,
+//     chunkCount: chunks.length,
+//   };
+
+//   await nodeJobChunk.create(jobChunkPayload);
+
+//   return chunks
+// };
+
+async function splitRuns(totalRuns, jobId) {
 
   const chunks = []
   let remaining = totalRuns
@@ -338,8 +562,23 @@ function splitRuns(totalRuns) {
     remaining -= chunkSize
   }
 
-  return chunks
-};
+  /**
+   * Insert chunk rows
+   */
+
+  for (const runs of chunks) {
+
+    await nodeJobChunk.create({
+      jobId,
+      runs,
+      nodeId: null,
+      status: "queued"
+    });
+
+  }
+
+  return chunks.length
+  };
 
 /**
  * Export scheduler function

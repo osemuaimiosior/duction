@@ -5,3 +5,5 @@ docker run -d \
   -e POSTGRES_DB=gridcompute \
   -p 5432:5432 \
   postgres:16
+
+docker exec -it grid-postgres psql -U griduser -d gridcompute

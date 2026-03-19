@@ -1,85 +1,122 @@
-// Import RedisSMQ for message queue communication
-const { RedisSMQ, ProducibleMessage } = require("redis-smq");
+const { RedisSMQ } = require("redis-smq");
 const { ERedisConfigClient } = require("redis-smq-common");
 
-// Map to store results for each job
-// jobId -> { expectedBatches: number, receivedResults: [], resolveCallback }
-const jobResults = {};
+const JobChunk = require("../../../config/model/jobChunk");
 
-// Initialize RedisSMQ
 RedisSMQ.initialize(
-  {
+{
     client: ERedisConfigClient.IOREDIS,
-    options: { host: "127.0.0.1", port: 6379 },
-  },
-  (err) => {
-    if (err) console.error("RedisSMQ init failed:", err);
-    else console.log("RedisSMQ initialized!");
-  }
-);
+    options: { host: "127.0.0.1", port: 6379 }
+},
+(err) => {
 
-// Create a consumer for the aggregator
-const consumer = RedisSMQ.createConsumer();
+    if (err) console.error("RedisSMQ init failed:", err);
+    else console.log("RedisSMQ initialized");
+
+});
 
 /**
- * Function to start listening to results from worker nodes
- * @param {string} jobId - The unique ID for the simulation job
- * @param {number} expectedBatches - Number of node batches for this job
- * @returns {Promise<number>} - Resolves to final aggregated result
+ * Expected result from Node: 
+    * {
+      "jobId": "job-8473",
+      "chunkId": 21,
+      "nodeId": "node-4",
+      "runs": 10000000,
+      "result": 0.51231
+    }
  */
-function aggregateJobResults(expectedBatches) {
-  const RESULTS_QUEUE = "simulation-job-result";
-  
-  return new Promise((resolve, reject) => {
-    // Store state for this job
-    jobResults[jobId] = {
-      expectedBatches,
-      receivedResults: [],
-      resolveCallback: resolve,
-    };
 
-    // Start consuming messages
-    consumer.run((err) => {
-      if (err) return console.error("Consumer failed:", err);
+const consumer = RedisSMQ.createConsumer();
 
-      consumer.consume(RESULTS_QUEUE, (message, done) => {
-        const msg = JSON.parse(message.body);
-        const jobId = msg.jobId;
+const RESULTS_QUEUE = "simulation-job-result";
 
-        if (!jobResults[jobId]) return done(); // Ignore unknown jobs
+consumer.run((err) => {
 
-        const state = jobResults[jobId];
-        state.receivedResults.push(msg.result);
+    if (err) return console.error("Consumer failed:", err);
 
-        if (state.receivedResults.length === state.expectedBatches) {
-          const finalResult = state.receivedResults.reduce((a, b) => a + b, 0) / state.receivedResults.length;
-          state.resolveCallback(finalResult);
-          delete jobResults[jobId];
+    consumer.consume(RESULTS_QUEUE, async (message, done) => {
+
+        try {
+
+            const msg = JSON.parse(message.body);
+
+            const { jobId, nodeId, chunkId, result, runs } = msg;
+
+            console.log("Result received:", msg);
+
+            await updateChunkResult(msg);
+
+            const complete = await isJobComplete(jobId);
+
+            if (complete) {
+
+                const finalResult = await aggregateJob(jobId);
+
+                console.log("Final Monte Carlo result:", finalResult);
+
+            }
+
+        } catch (error) {
+
+            console.error("Aggregator error:", error);
+
         }
 
         done();
-      }, (err) => {
-        if (err) console.error("Consume failed:", err);
-      });
+
     });
-    
-  });
-  }
 
-// Example usage
-async function runExample() {
-  // const jobId = "job-123";
+});
 
-  // Unique queue where aggregator listens for results
-  
-  const expectedBatches = 3; // Suppose 3 nodes were used
+async function updateChunkResult(msg) {
 
-  console.log("Waiting for results from nodes...");
+    await JobChunk.update(
+      {
+          result: msg.result,
+          status: "completed",
+          completedAt: new Date()
+      },
+      {
+          where: {
+              // id: msg.chunkId
+              id: msg.nodeId
+          }
+    });
 
-  const finalResult = await aggregateJobResults(expectedBatches);
-  // const finalResult = await aggregateJobResults(jobId, expectedBatches);
+};
 
-  console.log("Aggregated Monte Carlo result:", finalResult);
+async function isJobComplete(jobId) {
+
+    const pending = await JobChunk.count({
+        where: {
+            jobId,
+            status: ["queued","assigned","running"]
+        }
+    });
+
+    return pending === 0;
+
+};
+
+async function aggregateJob(jobId) {
+
+    const chunks = await JobChunk.findAll({
+        where: {
+            jobId,
+            status: "completed"
+        }
+    });
+
+    let weightedSum = 0;
+    let totalRuns = 0;
+
+    for (const chunk of chunks) {
+
+        weightedSum += chunk.result * chunk.runs;
+        totalRuns += chunk.runs;
+
+    }
+
+    return weightedSum / totalRuns;
+
 }
-
-runExample();

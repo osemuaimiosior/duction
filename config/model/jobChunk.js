@@ -1,51 +1,57 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../db/postgresLocal');
+const { DataTypes } = require("sequelize");
+const sequelize = require("../db/postgresLocal");
 
-  const JobChunk = sequelize.define("JobChunk", {
+const JobChunk = sequelize.define("JobChunk", {
 
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
-    },
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
 
-    jobId: {
-      type: DataTypes.UUID,
-      allowNull: false
-    },
+  jobId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    index: true
+  },
 
-    nodeId: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
+  nodeId: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
 
-    runs: {
-      type: DataTypes.BIGINT,
-      allowNull: false
-    },
+  runs: {
+    type: DataTypes.BIGINT,
+    allowNull: false
+  },
 
-    status: {
-      type: DataTypes.ENUM(
-        "queued",
-        "assigned",
-        "running",
-        "completed",
-        "failed"
-      ),
-      defaultValue: "queued"
-    },
+  result: {
+    type: DataTypes.DOUBLE,
+    allowNull: true
+  },
 
-    startedAt: {
-      type: DataTypes.DATE
-    },
+  status: {
+    type: DataTypes.ENUM(
+      "queued",
+      "assigned",
+      "running",
+      "completed",
+      "failed"
+    ),
+    defaultValue: "queued"
+  },
 
-    completedAt: {
-      type: DataTypes.DATE
-    }
+  startedAt: {
+    type: DataTypes.DATE
+  },
 
-  }, {
-    tableName: "job_chunks",
-    timestamps: true
-  });
+  completedAt: {
+    type: DataTypes.DATE
+  }
 
-  module.exports = JobChunk;
+}, {
+  tableName: "job_chunks",
+  timestamps: true
+});
+
+module.exports = JobChunk;

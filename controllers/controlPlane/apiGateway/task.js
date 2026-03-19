@@ -72,6 +72,8 @@ const newJob = async (req, res) => {
      * - allow result retrieval later
      */
 
+    const clinetID = req.client.id;
+
     const job = await newJobModel.create({
       // The model being executed. Example: "risk_model_v3"
       modelType: MODEL_TYPE, //example: risk_model_v3
@@ -80,7 +82,7 @@ const newJob = async (req, res) => {
       inputData: INPUT_DATA,
 
        // Identify which client submitted the job
-      clientId: req.client.id,
+      clientId: clinetID,
 
       // Type of simulation engine. Example: "monte_carlo"
       simulationType: SIMULATION_TYPE,  //example: monte_carlo
@@ -103,7 +105,7 @@ const newJob = async (req, res) => {
 
     const jobID = job.id;
 
-    await scheduleJob(MODEL_TYPE, jobID, INPUT_DATA, minRuns, SIMULATION_TYPE);
+    await scheduleJob(MODEL_TYPE, clinetID, jobID, INPUT_DATA, minRuns, SIMULATION_TYPE);
     
     return res.status(201).json({
       success: true,

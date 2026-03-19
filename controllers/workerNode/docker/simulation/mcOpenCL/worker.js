@@ -47,7 +47,8 @@ async function simulate() {
     
       if (!existingNode) {
         // Node is not registered or code is invalid
-        console.log("Node code invalid")
+        console.log("Node code invalid line 50 from worker.js");
+        process.exit(1);
       };
   
   // Step 2 — Start RedisSMQ consumer
@@ -65,16 +66,36 @@ async function simulate() {
      * `done()` acknowledges successful processing to Redis
      */
 
+    // const handler = async (message, done) => {
+    //   console.log('Received:', message.body);
+    //   // Execute the simulation job
+    //   await runSimulation(message.body);
+    //   // Acknowledge message consumption
+    //   done(); // Acknowledge
+    // };
+
     const handler = async (message, done) => {
-      console.log('Received:', message.body);
-      // Execute the simulation job
-      await runSimulation(message.body);
-      // Acknowledge message consumption
-      done(); // Acknowledge
-    };
+
+    const job = JSON.parse(message.body);
+
+    try {
+
+      console.log("Received job:", job);
+
+      await runSimulation(job);
+
+    } catch (err) {
+
+      console.error("Job failed:", err);
+
+    }
+
+    done();
+
+  };
     
     // Step 4 — Consume messages from node-specific queue
-    consumer.consume(existingNode.nodeId, handler, (err) => {
+    consumer.consume(`node:${existingNode.nodeId}`, handler, (err) => {
       if (err) console.error('Consume failed:', err);
       else console.log(`Listening on ${existingNode.nodeId}...`);
     });
@@ -94,77 +115,77 @@ async function simulate() {
 // Create a RedisSMQ producer for sending results
 const producer = RedisSMQ.createProducer();
 
+// Send the result to the aggregator via RedisSMQ
+producer.run((err) => {
+  if (err) return console.error("Producer failed:", err);
+
+});
+
 /**
  * Run a simulation job and send results to the aggregator
  * @param {Object} job - Job object containing simulation parameters
  *  Example: { id: "job123", modelType: "monte_carlo", runs: 1000000, S0: 100, K: 110, r: 0.05, sigma: 0.2, T: 1 }
  */
 
-async function runSimulation(job) {
 
-  // Unique queue where aggregator listens for results
-  const RESULTS_QUEUE = "simulation-job-result";
+function runSimulation(job) {
 
-  console.log("Running job:", job.modelType);
+  return new Promise((resolve, reject) => {
 
-  // Arguments to pass to the simulation executable
-  const args = [
-    job.runs, // Number of simulation iterations
-    // Add more parameters if needed, e.g., input file paths
-    job.S0,
-    job.K,
-    job.r,
-    job.sigma,
-    job.T
-  ];
+    const args = [
+      job.runs,
+      job.S0,
+      job.K,
+      job.r,
+      job.sigma,
+      job.T
+    ];
 
-  /**
-   * Step 1 — Execute simulation binary
-   *
-   * - Uses execFile to run compiled simulation executable `mc`
-   * - Non-blocking; stdout/stderr handled in callback
-   */
+    execFile("./mc", args, (error, stdout, stderr) => {
 
-  execFile("./mc", args, (error, stdout, stderr) => {
+      if (error) {
+        console.error("Simulation error:", error);
+        return reject(error);
+      }
 
-    if (error) {
-      console.error("Simulation error:", error);
-      return;
-    };
+      const result = parseFloat(stdout.trim());
 
-    // Parse stdout to extract the final option price
-    // Example stdout: "Option Price = 42.5678\n"
-    const result = parseFloat(stdout.trim());
-    console.log("Simulation result:", result);
+      if (isNaN(result)) {
+        return reject(new Error("Invalid simulation output from line 154 from worker.js"));
+      }
 
-    // Package the result into a payload
-    const resultPayload = {
-      jobId: job.jobId,
-      nodeId: job.nodeId, // node that ran the simulation
-      modelType: job.modelType,
-      result: result,
-      runs: job.runs,
-      timestamp: new Date()
-    };
+      console.log("Simulation result:", result);
 
-    // Send the result to the aggregator via RedisSMQ
-    producer.run((err) => {
-      if (err) return console.error("Producer failed:", err);
+      const resultPayload = {
+        jobId: job.jobId,
+        chunkId: job.chunkId,
+        nodeId: nodeID,
+        result: result,
+        runs: job.runs,
+        timestamp: new Date()
+      };
 
       const msg = new ProducibleMessage()
-        .setQueue(RESULTS_QUEUE)
+        .setQueue("simulation-job-result")
         .setBody(JSON.stringify(resultPayload));
 
       producer.produce(msg, (err, ids) => {
-        if (err) console.error("Send failed:", err);
-        else console.log(`📨 Result sent to aggregator, message ID: ${ids.join(", ")}`);
-      });
-    });
-  });
-};
 
-// ==============================
-// Start the consumer
-// ------------------------------
-// Immediately run the simulation consumer when script starts
+        if (err) {
+          console.error("Send failed:", err);
+          return reject(err);
+        }
+
+        console.log(`Result sent: ${ids}`);
+
+        resolve();
+
+      });
+
+    });
+
+  });
+
+}
+
 simulate();

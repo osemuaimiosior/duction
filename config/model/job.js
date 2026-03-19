@@ -14,6 +14,16 @@ const sequelize = require('../db/postgresLocal');
       allowNull: false
     },
 
+    nodeId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
+
+    jobId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
+
     modelType: {
       type: DataTypes.STRING,
       allowNull: false
