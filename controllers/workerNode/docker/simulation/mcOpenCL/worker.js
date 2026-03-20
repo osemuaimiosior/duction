@@ -2,24 +2,35 @@
 // Simulation Consumer Script
 // ==============================
 
-// Import RedisSMQ to consume messages from Redis queues
-const { RedisSMQ, ProducibleMessage } = require("redis-smq");
-
 // Import Node.js modules for executing external programs
 const { execFile } = require("child_process");
 
 // Import database model to verify node registration and heartbeat: This ensures only valid nodes can run simulation jobs
-const nodeState = require("../../../../../config/model/nodeHeartBeat");
+const newJob = require("../mcOpenCL/config//model/job");
+const nodeState = require("../mcOpenCL/config//model/nodeHeartBeat");
+
+const { spawn } = require("child_process");
 
 // Import OS module to get hostname
 const os = require("os");
+
+const queueConnection = require('./config/db/queue');
+const { Queue, Worker} = require('bullmq');
+const { exit } = require("process");
 
 // ==============================
 // Node Identification
 // ------------------------------
 // Each node has a unique node ID combining hostname and NODE_CODE environment variable: This ensures messages are routed to the correct compute node
 const nodeCode = process.env.NODE_CODE;
-const nodeID =  os.hostname() + "-" + `${nodeCode}`;
+const hostName = process.env.HOST_CODE;
+
+const nodeQueue = new Queue("node-mc-result", {
+  connection: queueConnection
+});
+
+const nodeID =  `node-${hostName}-${nodeCode}`;
+const QUEUE = "node-job";
 
 
 // ==============================
@@ -27,7 +38,6 @@ const nodeID =  os.hostname() + "-" + `${nodeCode}`;
 // ------------------------------
 // The consumer listens for jobs assigned to this node
 
-const consumer = RedisSMQ.createConsumer();
 
 /**
  * Function: simulate
@@ -40,67 +50,77 @@ const consumer = RedisSMQ.createConsumer();
  */
 
 async function simulate() {
-  // Step 1 — Verify node registration
+
   const existingNode = await nodeState.findOne({
-        where: { nodeId: nodeID }
-      }).exec();
-    
-      if (!existingNode) {
-        // Node is not registered or code is invalid
-        console.log("Node code invalid line 50 from worker.js");
-        process.exit(1);
-      };
-  
-  // Step 2 — Start RedisSMQ consumer
-  consumer.run((err) => {
-    if (err) return console.error('Consumer failed:', err);
-    
-     /**
-     * Step 3 — Message handler for incoming simulation jobs
-     *
-     * Each message contains job parameters:
-     * - modelType: identifies which simulation model to run
-     * - runs: number of iterations or samples
-     * - inputData: optional input data for the simulation
-     *
-     * `done()` acknowledges successful processing to Redis
-     */
-
-    // const handler = async (message, done) => {
-    //   console.log('Received:', message.body);
-    //   // Execute the simulation job
-    //   await runSimulation(message.body);
-    //   // Acknowledge message consumption
-    //   done(); // Acknowledge
-    // };
-
-    const handler = async (message, done) => {
-
-    const job = JSON.parse(message.body);
-
-    try {
-
-      console.log("Received job:", job);
-
-      await runSimulation(job);
-
-    } catch (err) {
-
-      console.error("Job failed:", err);
-
-    }
-
-    done();
-
-  };
-    
-    // Step 4 — Consume messages from node-specific queue
-    consumer.consume(`node:${existingNode.nodeId}`, handler, (err) => {
-      if (err) console.error('Consume failed:', err);
-      else console.log(`Listening on ${existingNode.nodeId}...`);
-    });
+    where: { nodeId: nodeID }
   });
-};
+
+  if (!existingNode) {
+    console.log("Node code invalid");
+    process.exit(1);
+  }
+
+  console.log("Node verified:", nodeID);
+
+  const worker = new Worker(
+    QUEUE,
+    async job => {
+
+      if (job.name === "node-mc-job" && job.data.nodeId === nodeID) {
+
+        const payload = job.data;
+
+        console.log("MC job received:", payload);
+
+        await newJob.upsert(payload);
+
+        try {
+          await runSimulation(payload);
+        } catch (err) {
+          console.error("Simulation failed:", err);
+          throw err;
+        }
+
+      }
+
+    },
+    {
+      connection: queueConnection,
+      concurrency: os.cpus().length
+    }
+  );
+
+  worker.on("completed", job => {
+    console.log(`Job completed ${job.id}`);
+  });
+
+  worker.on("failed", (job, err) => {
+    console.error(`Job failed ${job?.id}`, err);
+  });
+
+}
+
+
+let mcProcess = null;
+
+function startSimulationEngine() {
+
+  mcProcess = spawn("./mc");
+
+  mcProcess.stdout.on("data", data => {
+    const result = data.toString().trim();
+    console.log("Simulation output:", result);
+  });
+
+  mcProcess.stderr.on("data", data => {
+    console.error("Simulation error:", data.toString());
+  });
+
+  mcProcess.on("close", code => {
+    console.log("MC process exited", code);
+  });
+
+}
 
 /**
  * Function: runSimulation
@@ -112,75 +132,105 @@ async function simulate() {
  * 3. Handles output and errors
  */
 
-// Create a RedisSMQ producer for sending results
-const producer = RedisSMQ.createProducer();
-
-// Send the result to the aggregator via RedisSMQ
-producer.run((err) => {
-  if (err) return console.error("Producer failed:", err);
-
-});
-
 /**
  * Run a simulation job and send results to the aggregator
- * @param {Object} job - Job object containing simulation parameters
+ * @param {Object} payload - payload object containing simulation parameters
  *  Example: { id: "job123", modelType: "monte_carlo", runs: 1000000, S0: 100, K: 110, r: 0.05, sigma: 0.2, T: 1 }
  */
 
 
-function runSimulation(job) {
+// function runSimulation(payload) {
+
+//   return new Promise((resolve, reject) => {
+
+//     const args = [
+//       payload.runs,
+//       payload.S0,
+//       payload.K,
+//       payload.r,
+//       payload.sigma,
+//       payload.T
+//     ];
+
+//     execFile("./mc", args, async (error, stdout, stderr) => {
+
+//       if (error) {
+//         console.error("Simulation error:", error);
+//         return reject(error);
+//       }
+
+//       const result = parseFloat(stdout.trim());
+
+//       if (isNaN(result)) {
+//         return reject(new Error("Invalid simulation output"));
+//       }
+
+//       console.log("Simulation result:", result);
+
+//       const resultPayload = {
+//         jobId: payload.jobId,
+//         chunkId: payload.chunkId,
+//         nodeId: nodeID,
+//         result,
+//         runs: payload.runs,
+//         timestamp: new Date()
+//       };
+
+//       if (!nodeQueue) {
+
+//         nodeQueue = new Queue("node-mc", {
+//           connection: queueConnection
+//         });
+
+//         console.log("Result queue initialized");
+//       }
+
+//       await nodeQueue.add("node-mc-result", resultPayload, {
+//         attempts: 3,
+//         backoff: {
+//           type: "exponential",
+//           delay: 2000
+//         }
+//       });
+
+//       resolve(resultPayload);
+
+//     });
+
+//   });
+
+// }
+
+// simulate();
+
+function runSimulation(payload) {
 
   return new Promise((resolve, reject) => {
 
-    const args = [
-      job.runs,
-      job.S0,
-      job.K,
-      job.r,
-      job.sigma,
-      job.T
-    ];
+    const input = `${payload.runs} ${payload.S0} ${payload.K} ${payload.r} ${payload.sigma} ${payload.T}\n`;
+    
+    mcProcess.stdin.write(input);
 
-    execFile("./mc", args, (error, stdout, stderr) => {
+    mcProcess.stdout.once("data", async data => {
 
-      if (error) {
-        console.error("Simulation error:", error);
-        return reject(error);
-      }
-
-      const result = parseFloat(stdout.trim());
+      const result = parseFloat(data.toString().trim());
 
       if (isNaN(result)) {
-        return reject(new Error("Invalid simulation output from line 154 from worker.js"));
+        return reject(new Error("Invalid result"));
       }
 
-      console.log("Simulation result:", result);
-
       const resultPayload = {
-        jobId: job.jobId,
-        chunkId: job.chunkId,
+        jobId: payload.jobId,
+        chunkId: payload.chunkId,
         nodeId: nodeID,
-        result: result,
-        runs: job.runs,
+        result,
+        runs: payload.runs,
         timestamp: new Date()
       };
 
-      const msg = new ProducibleMessage()
-        .setQueue("simulation-job-result")
-        .setBody(JSON.stringify(resultPayload));
+      await nodeQueue.add("node-mc-result", resultPayload);
 
-      producer.produce(msg, (err, ids) => {
-
-        if (err) {
-          console.error("Send failed:", err);
-          return reject(err);
-        }
-
-        console.log(`Result sent: ${ids}`);
-
-        resolve();
-
-      });
+      resolve(resultPayload);
 
     });
 
@@ -188,4 +238,5 @@ function runSimulation(job) {
 
 }
 
+startSimulationEngine();
 simulate();

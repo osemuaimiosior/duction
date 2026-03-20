@@ -392,19 +392,6 @@ async function nodeEnvSetupAndRegistry(nodePayload) {
   // ------------------------------
   
   new Queue(NODE_CHANNEL, {connection: queueConnection});
-
-  // Producer (Adding Jobs)
-  // await nodeQueue.add('nodeDetailsRegistration', nodePayload);
-
-  // const worker = new Worker(
-  //   `${NODE_CHANNEL}`,
-  //   async job => {
-  //     // Will print { foo: 'bar'} for the first job
-  //     // and { qux: 'baz' } for the second.
-  //     console.log(job.data);
-  //   },
-  //   { connection: queueConnection },
-  // );
   
 };
 

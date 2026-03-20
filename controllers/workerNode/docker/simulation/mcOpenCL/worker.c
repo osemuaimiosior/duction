@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -9,24 +10,11 @@
 
 #define MAX_SOURCE_SIZE 0x100000
 
-int main(int argc, char *argv[])
+int main()
 {
-    if (argc < 7) {
-        printf("Usage: ./mc runs S0 K r sigma T\n");
-        return 1;
-    }
-
-    int runs = atoi(argv[1]);
-    float S0 = atof(argv[2]);
-    float K = atof(argv[3]);
-    float r = atof(argv[4]);
-    float sigma = atof(argv[5]);
-    float T = atof(argv[6]);
-
     cl_device_id device_id;
     cl_context context;
     cl_command_queue command_queue;
-    cl_mem memobj;
     cl_program program;
     cl_kernel kernel;
     cl_platform_id platform_id;
@@ -43,7 +31,7 @@ int main(int argc, char *argv[])
     fp = fopen(fileName, "r");
     if (!fp) {
         printf("Failed to load kernel.\n");
-        exit(1);
+        return 1;
     }
 
     source_str = (char *)malloc(MAX_SOURCE_SIZE);
@@ -60,9 +48,6 @@ int main(int argc, char *argv[])
     /* Command queue */
     command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
 
-    /* Memory buffer for results */
-    memobj = clCreateBuffer(context, CL_MEM_WRITE_ONLY, runs * sizeof(float), NULL, &ret);
-
     /* Program */
     program = clCreateProgramWithSource(context, 1,
                                         (const char **)&source_str,
@@ -73,66 +58,90 @@ int main(int argc, char *argv[])
     /* Kernel */
     kernel = clCreateKernel(program, "monteCarloOption", &ret);
 
-    /* Set kernel arguments */
-    clSetKernelArg(kernel, 0, sizeof(float), &S0);
-    clSetKernelArg(kernel, 1, sizeof(float), &K);
-    clSetKernelArg(kernel, 2, sizeof(float), &r);
-    clSetKernelArg(kernel, 3, sizeof(float), &sigma);
-    clSetKernelArg(kernel, 4, sizeof(float), &T);
-    clSetKernelArg(kernel, 5, sizeof(int), &runs);
-    clSetKernelArg(kernel, 6, sizeof(cl_mem), &memobj);
+    printf("MC Engine Ready\n");
+    fflush(stdout);
 
-    /* Run kernel */
-    size_t global_size = runs;
+    /* Persistent worker loop */
+    while (1)
+    {
+        char input[256];
 
-    clEnqueueNDRangeKernel(
-        command_queue,
-        kernel,
-        1,
-        NULL,
-        &global_size,
-        NULL,
-        0,
-        NULL,
-        NULL
-    );
+        if (!fgets(input, sizeof(input), stdin))
+            break;
 
-    /* Read results */
-    float *results = (float*)malloc(sizeof(float) * runs);
+        int runs;
+        float S0, K, r, sigma, T;
 
-    clEnqueueReadBuffer(
-        command_queue,
-        memobj,
-        CL_TRUE,
-        0,
-        runs * sizeof(float),
-        results,
-        0,
-        NULL,
-        NULL
-    );
+        sscanf(input, "%d %f %f %f %f %f",
+               &runs, &S0, &K, &r, &sigma, &T);
 
-    /* Compute average option price */
-    double sum = 0;
+        cl_mem memobj = clCreateBuffer(
+            context,
+            CL_MEM_WRITE_ONLY,
+            runs * sizeof(float),
+            NULL,
+            &ret
+        );
 
-    for(int i = 0; i < runs; i++)
-        sum += results[i];
+        /* Set kernel arguments */
+        clSetKernelArg(kernel, 0, sizeof(float), &S0);
+        clSetKernelArg(kernel, 1, sizeof(float), &K);
+        clSetKernelArg(kernel, 2, sizeof(float), &r);
+        clSetKernelArg(kernel, 3, sizeof(float), &sigma);
+        clSetKernelArg(kernel, 4, sizeof(float), &T);
+        clSetKernelArg(kernel, 5, sizeof(int), &runs);
+        clSetKernelArg(kernel, 6, sizeof(cl_mem), &memobj);
 
-    /* Print the result to stdout for Node.js to capture */
-    printf("%f\n", sum / runs);
+        size_t global_size = runs;
+
+        clEnqueueNDRangeKernel(
+            command_queue,
+            kernel,
+            1,
+            NULL,
+            &global_size,
+            NULL,
+            0,
+            NULL,
+            NULL
+        );
+
+        float *results = (float*)malloc(sizeof(float) * runs);
+
+        clEnqueueReadBuffer(
+            command_queue,
+            memobj,
+            CL_TRUE,
+            0,
+            runs * sizeof(float),
+            results,
+            0,
+            NULL,
+            NULL
+        );
+
+        double sum = 0;
+
+        for(int i = 0; i < runs; i++)
+            sum += results[i];
+
+        float price = sum / runs;
+
+        /* Send result to Node.js */
+        printf("%f\n", price);
+        fflush(stdout);
+
+        clReleaseMemObject(memobj);
+        free(results);
+    }
 
     /* Cleanup */
-    clFlush(command_queue);
-    clFinish(command_queue);
-
     clReleaseKernel(kernel);
     clReleaseProgram(program);
-    clReleaseMemObject(memobj);
     clReleaseCommandQueue(command_queue);
     clReleaseContext(context);
 
     free(source_str);
-    free(results);
 
     return 0;
 }

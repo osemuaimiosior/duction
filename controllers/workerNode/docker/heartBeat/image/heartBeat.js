@@ -7,9 +7,10 @@ const axios = require("axios"); // For sending HTTP requests (currently unused)
 const os = require("os"); // Node.js built-in module for OS info
 const { OSUtils } = require("node-os-utils"); // Provides CPU, memory, disk stats easily
 const osu = new OSUtils(); // Initialize OS utilities
-const nodeState = require("../../../config/model/nodeHeartBeat"); // Database model for node heartbeats
+const nodeState = require("../config/model/nodeHeartBeat"); // Database model for node heartbeats
 const queueConnection = require('../config/db/queue');
 const { Queue, Worker} = require('bullmq');
+const { exit } = require("process");
 
 // ==============================
 // Global Variables
@@ -27,6 +28,17 @@ const cpuCores = os.cpus().length; // Number of CPU cores on the machine
 // ==============================
 
 async function getCPUStat(NODE_CODE, HOST_NAME){
+
+  const checkID = `node-${HOST_NAME}-${NODE_CODE}`;
+  console.log(checkID);
+  const senderNodeDetails =await nodeState.findOne({
+    where: { nodeId: checkID}
+  });
+
+  if(!senderNodeDetails) {
+    console.log("Invalid node sender details from linw 38 of heartBeat.js")
+    exit(1)
+  }
 
   // Shortcuts for OS utilities
   const cpu = osu.cpu
@@ -158,8 +170,8 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
       const nodeId = NODE_CHANNEL
     
         // Convert bytes → GB
-        const ramTotalGB = memInfo.data.total.bytes / (1024 ** 3)
-        const ramFreeGB = memInfo.data.free.bytes / (1024 ** 3)
+        const ramTotalGB = +(memInfo.data.total.bytes / (1024 ** 3)).toFixed(2)
+        const ramFreeGB  = +(memInfo.data.available.bytes / (1024 ** 3)).toFixed(2)
     
         const uptimeSeconds = Math.floor(overVInfo.system.uptimeSeconds)
     
@@ -210,15 +222,21 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
 
        if (!nodeQueue) {
 
-            nodeQueue = new Queue("node:heartBeat", {
+            nodeQueue = new Queue("node-heartBeat", {
                 connection: queueConnection
             });
 
-            console.log("Queue initialized:", "node:heartBeat");
+            console.log("Queue initialized:", "node-heartBeat");
         }
 
         // Send heartbeat job
-        await nodeQueue.add("nodeHeartBeat", nodePayload);
+        await nodeQueue.add("nodeHeartBeat", nodePayload, {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000
+          }
+        });
 
         console.log("Node heartbeat saved:", nodeId)
     
@@ -239,7 +257,7 @@ async function sendHeartBeat(){
   const nodeCode = process.env.NODE_CODE; // Unique code for this node
   //make sure node-code exist in directory and get registered hostname
 
-  const hostName = process.env.Host_NAME; // Hostname registration
+  const hostName = process.env.HOST_NAME; // Hostname registration
   await getCPUStat(nodeCode, hostName);
 };
 
