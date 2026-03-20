@@ -12,13 +12,14 @@ const { execSync } = require("child_process"); // For running shell commands
 const crypto = require("crypto"); // For generating unique node IDs
 
 // Import database model to store node heartbeat information: This table tracks all active nodes and their health metrics
-const nodeState = require("../../../../../config/model/nodeHeartBeat");
+const nodeState = require("../config/model/nodeHeartBeat");
 
 // Import RedisSMQ modules for sending node metrics to queues
-const { RedisSMQ, EQueueType, EQueueDeliveryModel, ProducibleMessage } = require('redis-smq');
-const { ERedisConfigClient } = require('redis-smq-common');
-// const { spawn } = require("child_process");
-const { execSync } = require("child_process");
+// const { RedisSMQ, EQueueType, EQueueDeliveryModel, ProducibleMessage } = require('redis-smq');
+// const { ERedisConfigClient } = require('redis-smq-common');
+const { Queue, Worker} = require('bullmq');
+const sequelize = require('../config/db/postgresLocal');
+const queueConnection = require('../config/db/queue');
 
 
 /**
@@ -32,28 +33,30 @@ function run(cmd) {
   execSync(cmd, { stdio: "inherit" });
 }
 
-// ==============================
-// RedisSMQ Initialization
-// ------------------------------
-// Each node will send its heartbeat and system metrics via a Redis queue
-RedisSMQ.initialize(
-  {
-    client: ERedisConfigClient.IOREDIS,  // Use ioredis client 
-    options: { host: '127.0.0.1', port: 6379 }// Local Redis instance
-  },
-  (err) => {
-    if (err) console.error('RedisSMQ init failed:', err);
-  }
-);
+async function startPostgresServer() {
+  try {
+    await sequelize.authenticate();
+    console.log("PostgreSQL connected");
 
-// ==============================
-// Unique Node Identification
-// ------------------------------
-// Every node has a unique NODE_ID combining hostname + random hex string. This ensures no two nodes accidentally overwrite each other's data
+     await sequelize.sync({ alter: true }); //dev mode
+    //  await db.sequelize.sync({ alter: true }); //prod mode
+    console.log("Models synchronized");
+
+    // app.listen(3000, () => {
+    //   console.log("Server running on port 3000");
+    // });
+
+  } catch (err) {
+    console.error("DB connection failed:", err);
+  }
+}
+
+startPostgresServer();
+
 const NODE_ID =
   os.hostname() + "-" + crypto.randomBytes(4).toString("hex")
 
-const NODE_CHANNEL = `node:${NODE_ID}`;
+const NODE_CHANNEL = `node-${NODE_ID}`;
 
 
 // ==============================
@@ -241,8 +244,8 @@ async function getCPUStat ()  {
     const nodeId = NODE_CHANNEL
 
     // Convert bytes → GB
-    const ramTotalGB = memInfo.data.total.bytes / (1024 ** 3)
-    const ramFreeGB = memInfo.data.free.bytes / (1024 ** 3)
+    const ramTotalGB = +(memInfo.data.total.bytes / (1024 ** 3)).toFixed(2)
+    const ramFreeGB  = +(memInfo.data.available.bytes / (1024 ** 3)).toFixed(2)
 
     const cpuCores = os.cpus().length
 
@@ -329,83 +332,6 @@ async function getCPUStat ()  {
 
 // nvml.shutdown();
 
-//////////////////////////////////////////////////////////////
-// MQTT CONNECTION
-//////////////////////////////////////////////////////////////
-
-// client.on("connect", () => {
-
-//   console.log("MQTT Connected")
-//   console.log("Node Channel:", NODE_CHANNEL)
-
-//   client.subscribe(`${NODE_CHANNEL}`)
-
-//   // setInterval(getCPUStat, HEARTBEAT_INTERVAL)
-// })
-
-// client.on("message", (topic, message) => {
-
-//   if (topic === `${NODE_CHANNEL}`) {
-//     const job = JSON.parse(message.toString())
-
-//     console.log("Received Job:", job)
-//   }
-
-// })
-
-// async function nodeEnvSetupAndRegistry(nodePayload) {
-
-//   const existingNode = await nodeState.findOne({
-//     where: { nodeId: nodePayload.nodeId }
-//   }).exec();
-
-//   if (existingNode) {
-//     // await existingNode.update(nodePayload);
-//     console.log("Node details already exsit...Invalid registration")
-//   } else {
-//     await nodeState.create(nodePayload);
-
-//   const kubectl = spawn("sudo apt update", "sudo apt install", "nvidia-driver-535", "nvidia-smi");
-  
-//   let stderr = "";
-//   let stdout = "";
-
-//   kubectl.stdout.on("data", d => stdout += d);
-//   kubectl.stderr.on("data", d => stderr += d);
-
-//   kubectl.on("close", code => {
-//     if (code !== 0) {
-//       reject(new Error(stderr));
-//     } else {
-//       resolve(stdout);
-//     }
-//   });
-
-//     //Create Queue
-//   const queueManager = RedisSMQ.createQueueManager();
-//   queueManager.save(
-//     `${NODE_CHANNEL}`,
-//     EQueueType.LIFO_QUEUE,
-//     EQueueDeliveryModel.POINT_TO_POINT,
-//     (err) => {
-//       if (err) console.error('Queue creation failed:', err);
-//       else console.log('Queue created');
-//     }
-//   );
-//   };
-// }
-
-// const runSetup = async () => {
-
-//   try {
-//     await logicDetection();
-
-//   } catch (err) {
-//     console.error("SETUP FAILED:", err);
-//     process.exit(1);
-//   }
-// };
-
 async function nodeEnvSetupAndRegistry(nodePayload) {
 
   const existingNode = await nodeState.findOne({
@@ -420,58 +346,66 @@ async function nodeEnvSetupAndRegistry(nodePayload) {
   await nodeState.create(nodePayload);
 
   console.log("Setting up node environment...");
+  console.log(nodePayload);
 
-  try {
-    // Install GPU drivers and test GPU availability
-    // Step 1: Install GPU drivers
-    execSync("sudo apt update", { stdio: "inherit" });
-    execSync("sudo apt install -y nvidia-driver-535", { stdio: "inherit" });
-    execSync("nvidia-smi", { stdio: "inherit" });
+  // try {
+  //   // Install GPU drivers and test GPU availability
+  //   // Step 1: Install GPU drivers
+  //   execSync("sudo apt update", { stdio: "inherit" });
+  //   execSync("sudo apt install -y nvidia-driver-535", { stdio: "inherit" });
+  //   execSync("nvidia-smi", { stdio: "inherit" });
 
-    // Step 2: Install Docker
-    execSync("sudo apt install -y docker.io", { stdio: "inherit" });
-    execSync("sudo systemctl start docker", { stdio: "inherit" });
-    execSync("sudo systemctl enable docker", { stdio: "inherit" });
-    execSync("docker --version", { stdio: "inherit" });
+  //   // Step 2: Install Docker
+  //   execSync("sudo apt install -y docker.io", { stdio: "inherit" });
+  //   execSync("sudo systemctl start docker", { stdio: "inherit" });
+  //   execSync("sudo systemctl enable docker", { stdio: "inherit" });
+  //   execSync("docker --version", { stdio: "inherit" });
 
-    // Step 3: Install NVIDIA container runtime
-    execSync(
-      `distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && \
-      curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add - && \
-      curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list \
-      | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list`,
-      { shell: "/bin/bash", stdio: "inherit" }
-    );
+  //   // Step 3: Install NVIDIA container runtime
+  //   execSync(
+  //     `distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && \
+  //     curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add - && \
+  //     curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list \
+  //     | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list`,
+  //     { shell: "/bin/bash", stdio: "inherit" }
+  //   );
 
-    execSync("sudo apt update", { stdio: "inherit" });
-    execSync("sudo apt install -y nvidia-container-toolkit", { stdio: "inherit" });
-    execSync("sudo nvidia-ctk runtime configure --runtime=docker", { stdio: "inherit" });
-    execSync("sudo systemctl restart docker", { stdio: "inherit" });
+  //   execSync("sudo apt update", { stdio: "inherit" });
+  //   execSync("sudo apt install -y nvidia-container-toolkit", { stdio: "inherit" });
+  //   execSync("sudo nvidia-ctk runtime configure --runtime=docker", { stdio: "inherit" });
+  //   execSync("sudo systemctl restart docker", { stdio: "inherit" });
 
-    // Step 4: Test GPU docker
-    execSync(
-      "docker run --rm --gpus all nvidia/cuda:12.2.0-base nvidia-smi",
-      { stdio: "inherit" }
-    );
+  //   // Step 4: Test GPU docker
+  //   execSync(
+  //     "docker run --rm --gpus all nvidia/cuda:12.2.0-base nvidia-smi",
+  //     { stdio: "inherit" }
+  //   );
 
-    console.log("Node successfully configured!");
+  //   console.log("Node successfully configured!");
 
-  } catch (err) {
-    console.error("Node setup failed:", err.message);
-  }
+  // } catch (err) {
+  //   console.error("Node setup failed:", err.message);
+  // }
 
-  // Create Redis queue for this node
-  const queueManager = RedisSMQ.createQueueManager();
+  // ==============================
+  // Queue Initialization
+  // ------------------------------
+  
+  new Queue(NODE_CHANNEL, {connection: queueConnection});
 
-  queueManager.save(
-    `${NODE_CHANNEL}`,
-    EQueueType.LIFO_QUEUE,
-    EQueueDeliveryModel.POINT_TO_POINT,
-    (err) => {
-      if (err) console.error("Queue creation failed:", err);
-      else console.log("Queue created");
-    }
-  );
+  // Producer (Adding Jobs)
+  // await nodeQueue.add('nodeDetailsRegistration', nodePayload);
+
+  // const worker = new Worker(
+  //   `${NODE_CHANNEL}`,
+  //   async job => {
+  //     // Will print { foo: 'bar'} for the first job
+  //     // and { qux: 'baz' } for the second.
+  //     console.log(job.data);
+  //   },
+  //   { connection: queueConnection },
+  // );
+  
 };
 
 // ==============================

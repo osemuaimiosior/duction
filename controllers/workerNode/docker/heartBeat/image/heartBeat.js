@@ -8,30 +8,16 @@ const os = require("os"); // Node.js built-in module for OS info
 const { OSUtils } = require("node-os-utils"); // Provides CPU, memory, disk stats easily
 const osu = new OSUtils(); // Initialize OS utilities
 const nodeState = require("../../../config/model/nodeHeartBeat"); // Database model for node heartbeats
-const { RedisSMQ, ProducibleMessage } = require('redis-smq'); // Redis-based message queue
-const { ERedisConfigClient } = require('redis-smq-common'); // Redis client enum
-
-// ==============================
-// RedisSMQ Initialization
-// ==============================
-RedisSMQ.initialize(
-  {
-    client: ERedisConfigClient.IOREDIS, // Using ioredis client
-    options: { host: '127.0.0.1', port: 6379 } // Redis server connection
-  },
-  (err) => {
-    if (err) console.error('RedisSMQ init failed:', err);
-  }
-);
-
-// Create a message producer to send heartbeat data
-const producer = RedisSMQ.createProducer();
+const queueConnection = require('../config/db/queue');
+const { Queue, Worker} = require('bullmq');
 
 // ==============================
 // Global Variables
 // ==============================
 
 let NODE_CHANNEL =""; // Redis queue for this node
+// Global queue
+let nodeQueue = null;
 const cpuCores = os.cpus().length; // Number of CPU cores on the machine
 
 
@@ -62,11 +48,6 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
   // ------------------------------
 
     const cpuInfo = await cpu.usage();
-    console.log("CPU Info success:", cpuInfo.success);
-    console.log("CPU Usage:", cpuInfo.data);
-    console.log("CPU Usage Timestamp:", cpuInfo.timestamp);
-    console.log("CPU Cached:", cpuInfo.cached);
-    console.log("CPU OS Platform:", cpuInfo.platform);
 
     /**
      * Memory Output data
@@ -92,16 +73,6 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
   // ------------------------------
 
     const memInfo = await mem.info();
-    console.log("Memory Data success:", memInfo.success);
-    console.log("Memory Data Platform:", memInfo.platform);
-    console.log("Memory total RAM:", memInfo.data.total);
-    console.log("Memory total RAM available:", memInfo.data.available);
-    console.log("Memory total RAM used:", memInfo.data.used);
-    console.log("Memory total RAM free:", memInfo.data.free);
-    console.log("Memory total RAM cached:", memInfo.data.cached);
-    console.log("Memory RAM timestamp:", memInfo.timestamp);
-    console.log("Memory cached:", memInfo.cached);
-  
 
     /**
      *   {
@@ -170,27 +141,13 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
     console.log("System hostname:", overVInfo.system.hostname);
 
     NODE_CHANNEL =  overVInfo.system.hostname + "-" + NODE_CODE;
-    const expectedID = `${HOST_NAME} + "-" + ${NODE_CODE}`;
+    const expectedID = `${HOST_NAME}-${NODE_CODE}`;
 
     if( expectedID !== NODE_CHANNEL){
         console.log(`Invalid from ${NODE_CHANNEL}`);
 
         // TODO: Disable this node in the database if it doesn't match
     }
-
-    console.log("System distro:", overVInfo.system.distro);
-    console.log("System release:", overVInfo.system.release);
-    console.log("System kernel:", overVInfo.system.kernel);
-    console.log("System arch:", overVInfo.system.arch);
-    console.log("System uptime:", overVInfo.system.uptime);
-    console.log("System bootTime:", overVInfo.system.bootTime);
-    console.log("System time:", overVInfo.system.time);
-    console.log("System timezone:", overVInfo.system.timezone);
-    console.log("System disk total:", overVInfo.disk.total);
-    console.log("System disk used:", overVInfo.disk.used);
-    console.log("System disk available:", overVInfo.disk.available);
-    console.log("System disk usagePercentage:", overVInfo.disk.usagePercentage);
-    console.log("System disks:", overVInfo.disk.disks);
 
     try {
     
@@ -251,20 +208,18 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         // Send Heartbeat to Redis Queue
         // ------------------------------
 
-        producer.run((err) => {
-          if (err) return console.error('Producer failed:', err);
-          
-          const msg = new ProducibleMessage()
-            .setQueue(`${nodeId}`) // Queue name = node channel
-            .setBody(`${nodePayload}`); // Convert payload to string
-          
-          producer.produce(msg, (err, ids) => {
-            if (err) console.error('Send failed:', err);
-            else console.log(`📨 Sent message: ${ids.join(', ')}`);
-          });
-        });
+       if (!nodeQueue) {
 
-    
+            nodeQueue = new Queue("node:heartBeat", {
+                connection: queueConnection
+            });
+
+            console.log("Queue initialized:", "node:heartBeat");
+        }
+
+        // Send heartbeat job
+        await nodeQueue.add("nodeHeartBeat", nodePayload);
+
         console.log("Node heartbeat saved:", nodeId)
     
       } catch (error) {

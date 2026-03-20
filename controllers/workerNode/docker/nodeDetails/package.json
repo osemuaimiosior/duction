@@ -10,7 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "ioredis": "^5.10.0",
+    "bullmq": "^5.71.0",
+    "ioredis": "^5.10.1",
     "mongoose": "^9.2.4",
     "node-nvml": "^0.1.4",
     "node-os-utils": "^2.0.1",
