@@ -10,9 +10,44 @@
 
 #define MAX_SOURCE_SIZE 0x100000
 
+static FILE *fp = NULL;
+static const char fileName[] = "./kernel.cl";
+static char *source_str = NULL;
+static size_t source_size = 0;
+static int source_loaded = 0;
+
+static int load_kernel_source(void)
+{
+    if (source_loaded)
+        return 0;
+
+    fp = fopen(fileName, "r");
+    if (!fp) {
+        fprintf(stderr, "Failed to load kernel file %s\n", fileName);
+        return -1;
+    }
+
+    source_str = (char *)malloc(MAX_SOURCE_SIZE);
+    if (!source_str) {
+        fprintf(stderr, "Failed to allocate kernel source buffer.\n");
+        fclose(fp);
+        return -1;
+    }
+
+    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
+    fclose(fp);
+
+    source_loaded = 1;
+    return 0;
+}
+
 int main()
 {
     cl_device_id device_id;
+
+    if (load_kernel_source() != 0)
+        return 1;
+
     cl_context context;
     cl_command_queue command_queue;
     cl_program program;
@@ -21,22 +56,6 @@ int main()
     cl_uint ret_num_devices;
     cl_uint ret_num_platforms;
     cl_int ret;
-
-    FILE *fp;
-    char fileName[] = "./kernel.cl";
-    char *source_str;
-    size_t source_size;
-
-    /* Load kernel source */
-    fp = fopen(fileName, "r");
-    if (!fp) {
-        printf("Failed to load kernel.\n");
-        return 1;
-    }
-
-    source_str = (char *)malloc(MAX_SOURCE_SIZE);
-    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
-    fclose(fp);
 
     /* Platform + Device */
     clGetPlatformIDs(1, &platform_id, &ret_num_platforms);

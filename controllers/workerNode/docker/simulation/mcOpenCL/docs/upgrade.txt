@@ -1,0 +1,15 @@
+Eliminate:
+
+rand()
+
+and use vectorized RNG like:
+
+XORSHIFT
+
+Philox
+
+Sobol sequences
+
+Halton sequences
+
+Sobol sequences alone can make Monte Carlo 10× faster convergence.

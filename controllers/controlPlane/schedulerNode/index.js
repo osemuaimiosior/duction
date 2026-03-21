@@ -23,54 +23,15 @@ const nodeJobChunk = require("../../../config/model/jobChunk");
  */
 
 const { Op } = require("sequelize");
+const { Queue, Worker} = require('bullmq');
+const queueConnection = require('../config/db/queue');
 
-/**
- * RedisSMQ Message Queue: used as the distributed job queue system.
- *
- * Producer  -> sends jobs
- * Consumer  -> compute nodes receive jobs
- */
-const { RedisSMQ, ProducibleMessage } = require('redis-smq');
-
-/**
- * Redis configuration type IOREDIS is used as the Redis client implementation.
- */
-const { ERedisConfigClient } = require('redis-smq-common') ;
-
-
-/**
- * Initialize RedisSMQ: This connects the scheduler service to the Redis message queue. Redis acts as the central job distribution layer.
- */
-
-RedisSMQ.initialize(
-  {
-    client: ERedisConfigClient.IOREDIS,
-    options: { host: '127.0.0.1', port: 6379 } //Change host IP to where the redis server is running, '127.0.0.1' => Redis is running locally
-  },
-  (err) => {
-    if (err) console.error('RedisSMQ init failed:', err);
-  }
-);
-
-/**
- * Create a job producer: The producer is responsible for sending simulation tasks to worker nodes.
- */
-const producer = RedisSMQ.createProducer();
 
 /**
  * Heartbeat timeout: If a node has not sent a heartbeat within this time, it is considered offline.
  */
 
 const HEARTBEAT_TIMEOUT_MS = 10000;
-
-// Redis client
-const client = createClient();
-
-client.on("error", (err) => console.log("Redis Client Error", err));
-
-(async () => {
-  await client.connect();
-})();
 
 /**
  * Minimum simulation chunk per node
@@ -191,22 +152,33 @@ const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMUL
 
 async function dispatchJob(job) {
 
-  const queue = "node-job";
+    const payload = {
+      jobId: job.jobId,
+      chunkId: job.chunkId,
+      nodeId: job.nodeId,
+      runs: job.runs,
+      modelType: job.modelType,
+      inputData: job.inputData,
+      simulationType: job.simulationType
+    };
 
-  const payload = {
-    jobId: job.jobId,
-    chunkId: job.chunkId,
-    nodeId: job.nodeId,
-    runs: job.runs,
-    modelType: job.modelType,
-    inputData: job.inputData,
-    simulationType: job.simulationType
+    const payloadStr = JSON.stringify(payload);
+
+    const nodeQueue = new Queue("node-jobs", {
+        connection: queueConnection
+    });
+
+    console.log("Queue initialized:", "node-heartBeat");
+
+    // Send heartbeat job
+    await nodeQueue.add("node-dispathed-jobs", payloadStr, {
+      attempts: 3,
+      backoff: {
+        type: "exponential",
+        delay: 2000
+      }
+    });
   };
-
-  const payloadStr = JSON.stringify(payload);
-
-
-}
 
 /**
  * Split Simulation Runs into Chunks
@@ -226,35 +198,6 @@ async function dispatchJob(job) {
  * This allows distributed execution.
  */
 
-// async function splitRuns(totalRuns, job_ID) {
-
-//   const chunks = []
-//   let remaining = totalRuns
-
-//   while (remaining > 0) {
-
-//     const chunkSize = Math.min(MAX_NODE_RUN, remaining)
-
-//     chunks.push(chunkSize)
-
-//     remaining -= chunkSize
-//   }
-
-//   const nodeJobChunkDetails = await nodeJobChunk.findOne({
-//     where: { jobId: job_ID}
-//   });
-
-//   if(nodeJobChunkDetails) console.log("Invalid job split line 383");
-
-//   const jobChunkPayload = {
-//     jobId: job_ID,
-//     chunkCount: chunks.length,
-//   };
-
-//   await nodeJobChunk.create(jobChunkPayload);
-
-//   return chunks
-// };
 
 async function splitRuns(totalRuns, jobId) {
 

@@ -30,7 +30,7 @@ const nodeQueue = new Queue("node-mc-result", {
 });
 
 const nodeID =  `node-${hostName}-${nodeCode}`;
-const QUEUE = "node-job";
+const QUEUE = "node-jobs";
 
 
 // ==============================
@@ -66,7 +66,7 @@ async function simulate() {
     QUEUE,
     async job => {
 
-      if (job.name === "node-mc-job" && job.data.nodeId === nodeID) {
+      if (job.name === "node-dispathed-jobs" && job.data.nodeId === nodeID) {
 
         const payload = job.data;
 
@@ -138,70 +138,6 @@ function startSimulationEngine() {
  *  Example: { id: "job123", modelType: "monte_carlo", runs: 1000000, S0: 100, K: 110, r: 0.05, sigma: 0.2, T: 1 }
  */
 
-
-// function runSimulation(payload) {
-
-//   return new Promise((resolve, reject) => {
-
-//     const args = [
-//       payload.runs,
-//       payload.S0,
-//       payload.K,
-//       payload.r,
-//       payload.sigma,
-//       payload.T
-//     ];
-
-//     execFile("./mc", args, async (error, stdout, stderr) => {
-
-//       if (error) {
-//         console.error("Simulation error:", error);
-//         return reject(error);
-//       }
-
-//       const result = parseFloat(stdout.trim());
-
-//       if (isNaN(result)) {
-//         return reject(new Error("Invalid simulation output"));
-//       }
-
-//       console.log("Simulation result:", result);
-
-//       const resultPayload = {
-//         jobId: payload.jobId,
-//         chunkId: payload.chunkId,
-//         nodeId: nodeID,
-//         result,
-//         runs: payload.runs,
-//         timestamp: new Date()
-//       };
-
-//       if (!nodeQueue) {
-
-//         nodeQueue = new Queue("node-mc", {
-//           connection: queueConnection
-//         });
-
-//         console.log("Result queue initialized");
-//       }
-
-//       await nodeQueue.add("node-mc-result", resultPayload, {
-//         attempts: 3,
-//         backoff: {
-//           type: "exponential",
-//           delay: 2000
-//         }
-//       });
-
-//       resolve(resultPayload);
-
-//     });
-
-//   });
-
-// }
-
-// simulate();
 
 function runSimulation(payload) {
 
