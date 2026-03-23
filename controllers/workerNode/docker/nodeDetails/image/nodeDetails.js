@@ -34,21 +34,28 @@ function run(cmd) {
 }
 
 async function startPostgresServer() {
-  try {
-    await sequelize.authenticate();
-    console.log("PostgreSQL connected");
+  let retries = 5;
+  const retryDelay = 2000; // 2 seconds
 
-     await sequelize.sync({ alter: true }); //dev mode
-    //  await db.sequelize.sync({ alter: true }); //prod mode
-    console.log("Models synchronized");
+  for (let i = 0; i < retries; i++) {
+    try {
+      await sequelize.authenticate();
+      console.log("PostgreSQL connected");
 
-    // app.listen(3000, () => {
-    //   console.log("Server running on port 3000");
-    // });
+      await sequelize.sync({ alter: true }); //dev mode
+      console.log("Models synchronized");
+      return; // Success, exit function
 
-  } catch (err) {
-    console.error("DB connection failed:", err);
+    } catch (err) {
+      console.error(`DB connection failed (attempt ${i + 1}/${retries}):`, err.message);
+      if (i < retries - 1) {
+        console.log(`Retrying in ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
   }
+
+  console.error("Failed to connect to PostgreSQL after all retries");
 }
 
 startPostgresServer();
@@ -390,8 +397,12 @@ async function nodeEnvSetupAndRegistry(nodePayload) {
   // ==============================
   // Queue Initialization
   // ------------------------------
-  
-  new Queue(NODE_CHANNEL, {connection: queueConnection});
+  try {
+    new Queue(NODE_CHANNEL, {connection: queueConnection});
+    console.log(`Queue initialized for node: ${NODE_CHANNEL}`);
+  } catch (err) {
+    console.error("Failed to initialize Redis queue:", err.message);
+  }
   
 };
 

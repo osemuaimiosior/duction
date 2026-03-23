@@ -1,19 +1,5 @@
-const { RedisSMQ } = require("redis-smq");
-const { ERedisConfigClient } = require("redis-smq-common");
-
 const JobChunk = require("../../../config/model/jobChunk");
 
-RedisSMQ.initialize(
-{
-    client: ERedisConfigClient.IOREDIS,
-    options: { host: "127.0.0.1", port: 6379 }
-},
-(err) => {
-
-    if (err) console.error("RedisSMQ init failed:", err);
-    else console.log("RedisSMQ initialized");
-
-});
 
 /**
  * Expected result from Node: 
@@ -22,21 +8,31 @@ RedisSMQ.initialize(
       "chunkId": 21,
       "nodeId": "node-4",
       "runs": 10000000,
-      "result": 0.51231
+      "simResult": 0.51231
     }
  */
 
-const consumer = RedisSMQ.createConsumer();
+const RESULTS_QUEUE = "node-result";
+const RESULTS_QUEUE_JOB_NAME = "node-mc-result";
 
-const RESULTS_QUEUE = "simulation-job-result";
+const nodeCode = process.env.NODE_CODE;
+const hostName = process.env.HOST_CODE;
 
-consumer.run((err) => {
+const nodeID =  `node-${hostName}-${nodeCode}`;
 
-    if (err) return console.error("Consumer failed:", err);
+const worker = new Worker(
+    RESULTS_QUEUE,
+    async job => {
 
-    consumer.consume(RESULTS_QUEUE, async (message, done) => {
+      if (job.name === RESULTS_QUEUE_JOB_NAME && job.data.nodeId === nodeID) {
 
-        try {
+        const payload = job.data;
+
+        console.log("MC job received:", payload);
+
+        await newJob.upsert(payload);
+
+       try {
 
             const msg = JSON.parse(message.body);
 
@@ -64,9 +60,60 @@ consumer.run((err) => {
 
         done();
 
+      }
+
+    },
+    {
+      connection: queueConnection,
+      concurrency: os.cpus().length
+    }
+  );
+
+   worker.on("completed", job => {
+        console.log(`Job completed ${job.id}`);
     });
 
-});
+  worker.on("failed", (job, err) => {
+        console.error(`Job failed ${job?.id}`, err);
+    });
+
+// consumer.run((err) => {
+
+//     if (err) return console.error("Consumer failed:", err);
+
+//     consumer.consume(RESULTS_QUEUE, async (message, done) => {
+
+//         try {
+
+//             const msg = JSON.parse(message.body);
+
+//             const { jobId, nodeId, chunkId, result, runs } = msg;
+
+//             console.log("Result received:", msg);
+
+//             await updateChunkResult(msg);
+
+//             const complete = await isJobComplete(jobId);
+
+//             if (complete) {
+
+//                 const finalResult = await aggregateJob(jobId);
+
+//                 console.log("Final Monte Carlo result:", finalResult);
+
+//             }
+
+//         } catch (error) {
+
+//             console.error("Aggregator error:", error);
+
+//         }
+
+//         done();
+
+//     });
+
+// });
 
 async function updateChunkResult(msg) {
 

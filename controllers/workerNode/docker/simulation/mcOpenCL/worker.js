@@ -24,13 +24,16 @@ const { exit } = require("process");
 // Each node has a unique node ID combining hostname and NODE_CODE environment variable: This ensures messages are routed to the correct compute node
 const nodeCode = process.env.NODE_CODE;
 const hostName = process.env.HOST_CODE;
+// const RESULTS_QUEUE = "node-result";
+// const RESULTS_QUEUE_JOB_NAME = "node-mc-result";
 
-const nodeQueue = new Queue("node-mc-result", {
-  connection: queueConnection
-});
+// const nodeQueue = new Queue(RESULTS_QUEUE, {
+//   connection: queueConnection
+// });
 
 const nodeID =  `node-${hostName}-${nodeCode}`;
-const QUEUE = "node-jobs";
+const JOB_QUEUE = "node-jobs";
+const url = process.env.DOMAIN_NAME;
 
 
 // ==============================
@@ -63,7 +66,7 @@ async function simulate() {
   console.log("Node verified:", nodeID);
 
   const worker = new Worker(
-    QUEUE,
+    JOB_QUEUE,
     async job => {
 
       if (job.name === "node-dispathed-jobs" && job.data.nodeId === nodeID) {
@@ -159,12 +162,37 @@ function runSimulation(payload) {
         jobId: payload.jobId,
         chunkId: payload.chunkId,
         nodeId: nodeID,
-        result,
+        simResult: result,
         runs: payload.runs,
         timestamp: new Date()
       };
 
-      await nodeQueue.add("node-mc-result", resultPayload);
+      // await nodeQueue.add(RESULTS_QUEUE_JOB_NAME, resultPayload);
+
+      //below write code to send result payload to the queue server API
+
+    try {
+
+        // ===== POST Result Request =====
+        const postResponse = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(resultPayload)
+        });
+
+        if (!postResponse.ok) {
+            console.log(`POST request failed from line 187 of worker.js file: ${postResponse.status} ${postResponse.statusText}`);
+        }
+
+        const postData = await postResponse.json();
+        console.log('POST Response:', postData);
+
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
 
       resolve(resultPayload);
 

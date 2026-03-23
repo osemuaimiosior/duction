@@ -13,8 +13,11 @@ Private registry
 
 registry.yourdomain.com/mcopencl
 
+
+//user runs sthe below CLI command
 step 6. Run the compute node genral
     docker run -d \
     --restart unless-stopped \
     --name mcopencl \
+    -e DOMAIN_NAME=<dominname.com> \
     osemu/mcopencl
