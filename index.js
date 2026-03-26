@@ -5,11 +5,12 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const { runSetup } = require('./network/setup');
-// const v1Router = require('./router/v1');
+const {heartBeatWorkerQueue} = require("./controllers/controlPlane/nodeDetailsAggregator")
+const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
 // const db = require("./config/model");
 const nodeState = require("./config/model/nodeHeartBeat");
-const sequelize = require('./config/db/postgresLocal');
+const sequelize = require('./config/db/postgresCloud');
 const { Op } = require("sequelize");
 
 
@@ -23,7 +24,7 @@ console.log(`- POSTGRES_URL present: ${!!process.env.POSTGRES_URL}`);
 const PORT = process.env.PORT || 5600;
 
 // set timeout of 15s for all routes
-app.use(timeout('15s'));
+app.use(timeout('120s'));
 app.use((req, res, next) => {
   if (!req.timedout) next();
 });
@@ -40,8 +41,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
-// app.use("/api/v1", v1Router);
-// app.use("/api/cgpu/v1", v1CGPURouter);
+app.use("/api/v1", v1Router);
 
 app.get("/health", (req, res) => {
   const healthInfo = {
@@ -100,5 +100,12 @@ startServer();
 // runSetup();
 
 ////<======================= fabric network startup ======>>////
+
+////<======================= System Configuration startup ======>>////
+
+// Start heart beat worker queue engine:
+heartBeatWorkerQueue()
+
+////<======================= System Configuration startup ======>>////
 
 

@@ -14,7 +14,7 @@
  */
 const nodeState = require("../../../config/model/nodeHeartBeat");
 
-const nodeJob = require("../../../config/model/job");
+const newJobModel = require("../../../config/model/newJob");
 
 const nodeJobChunk = require("../../../config/model/jobChunk");
 
@@ -23,8 +23,9 @@ const nodeJobChunk = require("../../../config/model/jobChunk");
  */
 
 const { Op } = require("sequelize");
+
 const { Queue, Worker} = require('bullmq');
-const queueConnection = require('../config/db/queue');
+const queueConnection = require('../../../config/db/queue');
 
 
 /**
@@ -68,20 +69,6 @@ const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMUL
   }
 
   /**
-   * Create job row
-   */
-
-  await nodeJob.create({
-    clientId: CLIENT_ID,
-    jobId: jobID,
-    modelType: MODEL_TYPE,
-    simulationType: SIMULATION_TYPE,
-    inputData: INPUT_DATA,
-    totalRuns: RUNS,
-    status: "splitting"
-  });
-
-  /**
    * Split runs into chunk rows
    */
 
@@ -107,7 +94,7 @@ const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMUL
       nodeStatus: "online",
       jobStatus: "idle",
       ramFree: {
-        [Op.gt]: 4
+        [Op.gt]: 1
       }
     }
   });
@@ -168,7 +155,7 @@ async function dispatchJob(job) {
         connection: queueConnection
     });
 
-    console.log("Queue initialized:", "node-heartBeat");
+    // console.log("Queue initialized:", "node-heartBeat");
 
     // Send heartbeat job
     await nodeQueue.add("node-dispathed-jobs", payloadStr, {

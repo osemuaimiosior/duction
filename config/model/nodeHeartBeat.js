@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../db/postgresLocal');
+const sequelize = require('../db/postgresCloud');
 
   const NodeState = sequelize.define("NodeState", {
 
@@ -9,10 +9,10 @@ const sequelize = require('../db/postgresLocal');
       primaryKey: true
     },
 
-    state: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
+    // state: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false,
+    // },
 
     cpuUsage: {
       type: DataTypes.FLOAT,

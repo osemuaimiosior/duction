@@ -6,8 +6,8 @@
 const { execFile } = require("child_process");
 
 // Import database model to verify node registration and heartbeat: This ensures only valid nodes can run simulation jobs
-const newJob = require("../mcOpenCL/config//model/job");
-const nodeState = require("../mcOpenCL/config//model/nodeHeartBeat");
+// const newJob = require("../mcOpenCL/config//model/job");
+// const nodeState = require("../mcOpenCL/config//model/nodeHeartBeat");
 
 const { spawn } = require("child_process");
 
@@ -33,7 +33,8 @@ const hostName = process.env.HOST_CODE;
 
 const nodeID =  `node-${hostName}-${nodeCode}`;
 const JOB_QUEUE = "node-jobs";
-const url = process.env.DOMAIN_NAME;
+const url = "http://www.localhost.com/job/result";
+// const url = `${process.env.TEST_DOMAIN_NAME}/job/result`;
 
 
 // ==============================
@@ -75,7 +76,7 @@ async function simulate() {
 
         console.log("MC job received:", payload);
 
-        await newJob.upsert(payload);
+        // await newJob.upsert(payload);
 
         try {
           await runSimulation(payload);

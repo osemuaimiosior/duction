@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../db/postgresLocal");
+const sequelize = require("../db/postgresCloud");
 
 const JobChunk = sequelize.define("JobChunk", {
 
@@ -17,7 +17,7 @@ const JobChunk = sequelize.define("JobChunk", {
 
   nodeId: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true
   },
 
   runs: {

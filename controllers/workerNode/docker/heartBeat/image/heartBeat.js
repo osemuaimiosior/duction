@@ -7,9 +7,9 @@ const axios = require("axios"); // For sending HTTP requests (currently unused)
 const os = require("os"); // Node.js built-in module for OS info
 const { OSUtils } = require("node-os-utils"); // Provides CPU, memory, disk stats easily
 const osu = new OSUtils(); // Initialize OS utilities
-const nodeState = require("../config/model/nodeHeartBeat"); // Database model for node heartbeats
-const queueConnection = require('../config/db/queue');
-const { Queue, Worker} = require('bullmq');
+// const nodeState = require("../config/model/nodeHeartBeat"); // Database model for node heartbeats
+// const queueConnection = require('../config/db/queue');
+// const { Queue, Worker} = require('bullmq');
 const { exit } = require("process");
 
 // ==============================
@@ -17,8 +17,8 @@ const { exit } = require("process");
 // ==============================
 
 let NODE_CHANNEL =""; // Redis queue for this node
-// Global queue
-let nodeQueue = null;
+const url = "http://localhost:3000/api/v1/send-heartBeat-queue";
+const url2 = "http://localhost:3000/api/v1/check-node-details";
 const cpuCores = os.cpus().length; // Number of CPU cores on the machine
 
 
@@ -27,18 +27,29 @@ const cpuCores = os.cpus().length; // Number of CPU cores on the machine
 // Purpose: Collect system stats and send heartbeat
 // ==============================
 
-async function getCPUStat(NODE_CODE, HOST_NAME){
+async function getCPUStat(node_code, host_name){
 
-  const checkID = `node-${HOST_NAME}-${NODE_CODE}`;
-  console.log(checkID);
-  const senderNodeDetails =await nodeState.findOne({
-    where: { nodeId: checkID}
-  });
+  const checkID = `node-${host_name}-${node_code}`;
+  // console.log(checkID);
 
-  if(!senderNodeDetails) {
-    console.log("Invalid node sender details from linw 38 of heartBeat.js")
-    exit(1)
-  }
+  try {
+    const senderNodeDetails = await axios.post(url2, {
+      "NODE_CODE": node_code,
+      "HOST_NAME": host_name
+    })
+
+    console.log(senderNodeDetails.data.details);
+
+    if(!senderNodeDetails.data) {
+      console.log("Invalid node sender details from linw 38 of heartBeat.js")
+      exit(1)
+    };
+
+  } catch (error){
+
+    console.error("Failed:", error.response?.data || error.message);
+  };
+  
 
   // Shortcuts for OS utilities
   const cpu = osu.cpu
@@ -150,10 +161,10 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
 
     const overVInfo = await overV;
     // console.log("Processes Information",overVInfo.processes);
-    console.log("System hostname:", overVInfo.system.hostname);
+    // console.log("System hostname:", overVInfo.system.hostname);
 
-    NODE_CHANNEL =  overVInfo.system.hostname + "-" + NODE_CODE;
-    const expectedID = `${HOST_NAME}-${NODE_CODE}`;
+    NODE_CHANNEL =  "node" + "-" + overVInfo.system.hostname + "-" + node_code;
+    const expectedID = `node-${host_name}-${node_code}`;
 
     if( expectedID !== NODE_CHANNEL){
         console.log(`Invalid from ${NODE_CHANNEL}`);
@@ -214,31 +225,44 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         }
     
         // Upsert instead of create (important for heartbeats)
-        console.log("Node payload", nodePayload);
+        // console.log("Node payload", nodePayload);
         
         // ------------------------------
         // Send Heartbeat to Redis Queue
         // ------------------------------
 
-       if (!nodeQueue) {
+      //  if (!nodeQueue) {
 
-            nodeQueue = new Queue("node-heartBeat", {
-                connection: queueConnection
-            });
+      //       nodeQueue = new Queue("node-heartBeat", {
+      //           connection: queueConnection
+      //       });
 
-            console.log("Queue initialized:", "node-heartBeat");
-        }
+      //       console.log("Queue initialized:", "node-heartBeat");
+      //   }
 
-        // Send heartbeat job
-        await nodeQueue.add("nodeHeartBeat", nodePayload, {
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 2000
-          }
-        });
+      //   // Send heartbeat job
+      //   await nodeQueue.add("nodeHeartBeat", nodePayload, {
+      //     attempts: 3,
+      //     backoff: {
+      //       type: "exponential",
+      //       delay: 2000
+      //     }
+      //   });
 
-        console.log("Node heartbeat saved:", nodeId)
+      // ===== POST heartbeat Request =====
+      const postResponse = await axios.post(url, {
+        NODE_PAYLOAD: nodePayload
+      });
+
+      // console.log(postResponse.data)
+
+      if (!postResponse.data) {
+          console.log(`POST request failed from line 251 of heartBeat.js file: ${postResponse.status} ${postResponse.statusText}`);
+      }
+
+      // const postData = await postResponse.json();
+      // console.log('POST Response:', postData);
+      // console.log("Node heartbeat saved:", nodeId)
     
       } catch (error) {
     

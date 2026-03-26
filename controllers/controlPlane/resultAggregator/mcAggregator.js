@@ -77,44 +77,6 @@ const worker = new Worker(
         console.error(`Job failed ${job?.id}`, err);
     });
 
-// consumer.run((err) => {
-
-//     if (err) return console.error("Consumer failed:", err);
-
-//     consumer.consume(RESULTS_QUEUE, async (message, done) => {
-
-//         try {
-
-//             const msg = JSON.parse(message.body);
-
-//             const { jobId, nodeId, chunkId, result, runs } = msg;
-
-//             console.log("Result received:", msg);
-
-//             await updateChunkResult(msg);
-
-//             const complete = await isJobComplete(jobId);
-
-//             if (complete) {
-
-//                 const finalResult = await aggregateJob(jobId);
-
-//                 console.log("Final Monte Carlo result:", finalResult);
-
-//             }
-
-//         } catch (error) {
-
-//             console.error("Aggregator error:", error);
-
-//         }
-
-//         done();
-
-//     });
-
-// });
-
 async function updateChunkResult(msg) {
 
     await JobChunk.update(

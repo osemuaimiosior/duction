@@ -1,12 +1,13 @@
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db/postgresCloud');
 
-module.exports = (sequelize, DataTypes) => {
   const newJob = sequelize.define("NewJob", {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    modelId: {
+    modelType: {
       type: DataTypes.STRING,
       allowNull: false
     },
@@ -25,10 +26,10 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: "queued"
     },
     clientId: {
-      type: DataTypes.UUID,
+      type: DataTypes.STRING,
       allowNull: false
     },
-    assignedWorker: {
+    simulationType: {
       type: DataTypes.STRING,
       allowNull: true
     },
@@ -42,15 +43,12 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     timestamps: true,
-    tableName: "inference_jobs"
+    tableName: "new_jobs",
+    indexes: [
+      { fields: ["inputData"] },
+      { fields: ["clientId"] },
+      { fields: ["result"] }
+    ]
   });
 
-  InferenceJob.associate = (models) => {
-    InferenceJob.belongsTo(models.ClientAPI, {
-      foreignKey: "clientId",
-      onDelete: "CASCADE"
-    });
-  };
-
-  return newJob;
-};
+  module.exports = newJob;

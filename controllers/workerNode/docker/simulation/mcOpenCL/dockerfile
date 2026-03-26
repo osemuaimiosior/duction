@@ -13,6 +13,7 @@ WORKDIR /app
 COPY worker.c .
 COPY kernel.cl .
 COPY worker.js .
+COPY config .
 COPY package.json .
 
 RUN gcc worker.c -o mc -lOpenCL

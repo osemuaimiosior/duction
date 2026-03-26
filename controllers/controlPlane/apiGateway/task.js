@@ -1,6 +1,9 @@
 // Import the database model used to store simulation jobs. This table keeps track of jobs submitted by clients
 
 const  newJobModel  = require("../../../config/model/newJob");
+const  nodeState  = require("../../../config/model/nodeHeartBeat");
+const { Queue, Worker} = require('bullmq');
+const queueConnection = require('../../../config/db/queue');
 
 // Import the scheduler responsible for distributing jobs across compute nodes in the network
 
@@ -82,7 +85,8 @@ const newJob = async (req, res) => {
       inputData: INPUT_DATA,
 
        // Identify which client submitted the job
-      clientId: clinetID,
+      clientId: "23242fff", // example
+      // clientId: clinetID,
 
       // Type of simulation engine. Example: "monte_carlo"
       simulationType: SIMULATION_TYPE,  //example: monte_carlo
@@ -105,7 +109,7 @@ const newJob = async (req, res) => {
 
     const jobID = job.id;
 
-    await scheduleJob(MODEL_TYPE, clinetID, jobID, INPUT_DATA, minRuns, SIMULATION_TYPE);
+    const feedback = await scheduleJob(MODEL_TYPE, clinetID, jobID, INPUT_DATA, minRuns, SIMULATION_TYPE);
     
     return res.status(201).json({
       success: true,
@@ -114,7 +118,11 @@ const newJob = async (req, res) => {
       jobId: jobID,
 
       // Current job status
-      status: job.status
+      status: job.status,
+
+      scheduleJob: feedback.message,
+
+      chunkCount: feedback.chunkCount
     });    
 
   } catch (error) {
@@ -134,7 +142,103 @@ const newJob = async (req, res) => {
   }
 };
 
+const checkNodeDetailsCreatNewQueue = async (req, res) => {
+  try {
+
+    const queueName = req.body.QUEUE_NAME;
+    const nodeDetails = req.body.QUEUE_PAYLOAD;
+    const NODEID = req.body.NODE_ID;
+    console.log(NODEID)
+
+    const existingNode = await nodeState.findOne({
+      where: { nodeId: NODEID }
+    });
+
+    if (!existingNode) {
+
+      try {
+
+        await nodeState.create(nodeDetails);
+
+        new Queue(queueName, { connection: queueConnection });
+
+        console.log(`Queue initialized for node: ${queueName}`);
+
+        return res.status(200).json({
+          message: "Node registered",
+          queue: queueName
+        });
+
+      } catch (err) {
+
+        console.error("Failed to initialize Redis queue and register node:", err.message);
+
+        return res.status(500).json({
+          error: err.message
+        });
+
+      }
+      // return res.status(200).json({
+      //   result: existingNode,
+      //   status: 200
+      // });
+    }
+
+    return res.status(404).json({
+      result: "Node details already exist",
+      status: 404
+    });
+
+  } catch (error) {
+
+    console.error("Error checking node:", error);
+
+    res.status(500).json({
+      message: "Internal server error"
+    });
+
+  }
+};
+
+const checkNodeDetails = async (req, res) => {
+  try {
+
+    const hostName = req.body.HOST_NAME;
+    const nodeCode = req.body.NODE_CODE;
+    
+    const NODEID = `node-${hostName}-${nodeCode}`
+
+    const existingNode = await nodeState.findOne({
+      where: { nodeId: NODEID }
+    });
+
+    if (existingNode) {
+
+        return res.status(200).json({
+          message: "Node registered",
+          details: existingNode
+        });
+    }
+
+    return res.status(404).json({
+      result: "No node details",
+      status: 404
+    });
+
+  } catch (error) {
+
+    console.error("Error checking node:", error);
+
+    res.status(500).json({
+      message: "Internal server error"
+    });
+
+  }
+};
+
 // Export controller so it can be used in route definitions
 module.exports = {
-  newJob
+  newJob,
+  checkNodeDetailsCreatNewQueue,
+  checkNodeDetails
 };

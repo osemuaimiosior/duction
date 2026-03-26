@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 // ==============================
 // Node Environment & Heartbeat Script
 // ==============================
@@ -10,16 +12,16 @@ const osu = new OSUtils();
 const os = require("os"); // For hostname, CPU cores, etc.
 const { execSync } = require("child_process"); // For running shell commands
 const crypto = require("crypto"); // For generating unique node IDs
+const { exists } = require('fs-extra');
+const { exit } = require('process');
 
 // Import database model to store node heartbeat information: This table tracks all active nodes and their health metrics
-const nodeState = require("../config/model/nodeHeartBeat");
+// const nodeState = require("../config/model/nodeHeartBeat");
 
-// Import RedisSMQ modules for sending node metrics to queues
-// const { RedisSMQ, EQueueType, EQueueDeliveryModel, ProducibleMessage } = require('redis-smq');
-// const { ERedisConfigClient } = require('redis-smq-common');
-const { Queue, Worker} = require('bullmq');
-const sequelize = require('../config/db/postgresLocal');
-const queueConnection = require('../config/db/queue');
+// const { Queue, Worker} = require('bullmq');
+// const sequelize = require('../config/db/postgresCloud');
+// const queueConnection = require('../config/db/queue');
+// const url = `${process.env.TEST_DOMAIN_NAME}/create-new-queue`;
 
 
 /**
@@ -32,33 +34,6 @@ function run(cmd) {
   console.log(`Running: ${cmd}`);
   execSync(cmd, { stdio: "inherit" });
 }
-
-async function startPostgresServer() {
-  let retries = 5;
-  const retryDelay = 2000; // 2 seconds
-
-  for (let i = 0; i < retries; i++) {
-    try {
-      await sequelize.authenticate();
-      console.log("PostgreSQL connected");
-
-      await sequelize.sync({ alter: true }); //dev mode
-      console.log("Models synchronized");
-      return; // Success, exit function
-
-    } catch (err) {
-      console.error(`DB connection failed (attempt ${i + 1}/${retries}):`, err.message);
-      if (i < retries - 1) {
-        console.log(`Retrying in ${retryDelay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-  }
-
-  console.error("Failed to connect to PostgreSQL after all retries");
-}
-
-startPostgresServer();
 
 const NODE_ID =
   os.hostname() + "-" + crypto.randomBytes(4).toString("hex")
@@ -294,9 +269,9 @@ async function getCPUStat ()  {
     }
 
     // Register node in DB and setup environment if not already registered
-    await nodeEnvSetupAndRegistry(nodePayload);
+    console.log(nodePayload);
 
-    console.log("Node heartbeat saved:", nodeId)
+    await nodeEnvSetupAndRegistry(nodePayload);
 
   } catch (error) {
 
@@ -314,101 +289,30 @@ async function getCPUStat ()  {
     
 };
 
-//////////////////////// GPU Monitoring ////////////////////////////////
-
-// nvml.init();
-
-// const deviceCount = nvml.deviceGetCount();
-
-// for (let i = 0; i < deviceCount; i++) {
-
-//   const handle = nvml.deviceGetHandleByIndex(i);
-
-//   const util = nvml.deviceGetUtilizationRates(handle);
-//   const mem = nvml.deviceGetMemoryInfo(handle);
-//   const temp = nvml.deviceGetTemperature(handle, 0);
-
-//   console.log({
-//     gpuUtilization: util.gpu,
-//     memoryUsed: mem.used,
-//     memoryFree: mem.free,
-//     temperature: temp
-//   });
-
-// }
-
-// nvml.shutdown();
+const axios = require("axios");
 
 async function nodeEnvSetupAndRegistry(nodePayload) {
 
-  const existingNode = await nodeState.findOne({
-    where: { nodeId: nodePayload.nodeId }
-  });
+  const url = "http://localhost:3000/api/v1/check-node-details-create-newQueue";
 
-  if (existingNode) {
-    console.log("Node already exists. Invalid registration");
-    return;
-  }
-
-  await nodeState.create(nodePayload);
-
-  console.log("Setting up node environment...");
-  console.log(nodePayload);
-
-  // try {
-  //   // Install GPU drivers and test GPU availability
-  //   // Step 1: Install GPU drivers
-  //   execSync("sudo apt update", { stdio: "inherit" });
-  //   execSync("sudo apt install -y nvidia-driver-535", { stdio: "inherit" });
-  //   execSync("nvidia-smi", { stdio: "inherit" });
-
-  //   // Step 2: Install Docker
-  //   execSync("sudo apt install -y docker.io", { stdio: "inherit" });
-  //   execSync("sudo systemctl start docker", { stdio: "inherit" });
-  //   execSync("sudo systemctl enable docker", { stdio: "inherit" });
-  //   execSync("docker --version", { stdio: "inherit" });
-
-  //   // Step 3: Install NVIDIA container runtime
-  //   execSync(
-  //     `distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && \
-  //     curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add - && \
-  //     curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list \
-  //     | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list`,
-  //     { shell: "/bin/bash", stdio: "inherit" }
-  //   );
-
-  //   execSync("sudo apt update", { stdio: "inherit" });
-  //   execSync("sudo apt install -y nvidia-container-toolkit", { stdio: "inherit" });
-  //   execSync("sudo nvidia-ctk runtime configure --runtime=docker", { stdio: "inherit" });
-  //   execSync("sudo systemctl restart docker", { stdio: "inherit" });
-
-  //   // Step 4: Test GPU docker
-  //   execSync(
-  //     "docker run --rm --gpus all nvidia/cuda:12.2.0-base nvidia-smi",
-  //     { stdio: "inherit" }
-  //   );
-
-  //   console.log("Node successfully configured!");
-
-  // } catch (err) {
-  //   console.error("Node setup failed:", err.message);
-  // }
-
-  // ==============================
-  // Queue Initialization
-  // ------------------------------
   try {
-    new Queue(NODE_CHANNEL, {connection: queueConnection});
-    console.log(`Queue initialized for node: ${NODE_CHANNEL}`);
-  } catch (err) {
-    console.error("Failed to initialize Redis queue:", err.message);
+
+    const res = await axios.post(url, {
+      QUEUE_NAME: NODE_CHANNEL,
+      QUEUE_PAYLOAD: nodePayload,
+      NODE_ID: nodePayload.nodeId
+    });
+
+    console.log("Node registered:", res.data);
+
+  } catch (error) {
+
+    console.error("Registration failed:", error.response?.data || error.message);
+
   }
-  
+
 };
 
-// ==============================
-// Start Node Detection & Monitoring
-// ------------------------------
 logicDetection();
 
 //Docker container monitoring tool: cAdvisor, Prometheus etc
