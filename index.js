@@ -5,7 +5,8 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const { runSetup } = require('./network/setup');
-const {heartBeatWorkerQueue} = require("./controllers/controlPlane/nodeDetailsAggregator")
+const {heartBeatWorkerQueue} = require("./controllers/controlPlane/nodeDetailsAggregator");
+const {resultAggregatorQueueWorker} = require("./controllers/controlPlane/resultAggregator/mcAggregator")
 const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
 // const db = require("./config/model");
@@ -24,7 +25,7 @@ console.log(`- POSTGRES_URL present: ${!!process.env.POSTGRES_URL}`);
 const PORT = process.env.PORT || 5600;
 
 // set timeout of 15s for all routes
-app.use(timeout('120s'));
+app.use(timeout('60s'));
 app.use((req, res, next) => {
   if (!req.timedout) next();
 });
@@ -104,7 +105,8 @@ startServer();
 ////<======================= System Configuration startup ======>>////
 
 // Start heart beat worker queue engine:
-heartBeatWorkerQueue()
+heartBeatWorkerQueue();
+resultAggregatorQueueWorker();
 
 ////<======================= System Configuration startup ======>>////
 

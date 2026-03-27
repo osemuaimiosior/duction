@@ -22,7 +22,6 @@ const {scheduleJob} = require("../schedulerNode/index");
  * 4. Send the job to the distributed scheduler
  * 5. Return the job ID to the client
  */
-
 const newJob = async (req, res) => {
   try {
 

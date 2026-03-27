@@ -1,40 +1,67 @@
-const Redis = require("ioredis");
+const express = require('express');
+const app = express();
+const rateLimit = require('express-rate-limit');
 
-const redis = new Redis(process.env.REDIS_URL);
-
-const rateLimiter = async (req, res, next) => {
-  try {
-    const client = req.client; // set by authenticate middleware
-
-    if (!client) {
-      return res.status(500).json({ message: "Client not attached" });
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: {
+    StatusCode: 429,
+    Message: 'failed',
+    Data: {
+      Details: 'Too many login attempts. Please try again later.'
     }
-
-    const limit = client.rateLimitPerMinute;
-    const window = 60; // seconds
-
-    const key = `rate:${client.id}`;
-
-    const current = await redis.incr(key);
-
-    if (current === 1) {
-      await redis.expire(key, window);
-    }
-
-    if (current > limit) {
-      return res.status(429).json({
-        message: "Rate limit exceeded",
-        limit,
-        window: "1 minute"
-      });
-    }
-
-    next();
-
-  } catch (err) {
-    console.error("Rate limiter error:", err);
-    return res.status(500).json({ message: "Rate limiting error" });
   }
+});
+
+const signUpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: {
+    StatusCode: 429,
+    Message: 'failed',
+    Data: {
+      Details: 'Too many signup attempts. Please wait.'
+    }
+  }
+});
+
+const blockedIPs = new Set();
+
+const ipBlocker = (req, res, next) => {
+  const ip = req.ip;
+  if (blockedIPs.has(ip)) {
+    return res.status(403).json({ message: 'Forbidden: IP blocked.' });
+  }
+  next();
 };
 
-module.exports = rateLimiter;
+//app.use(ipBlocker);
+
+
+const apiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: {
+    StatusCode: 429,
+    Message: 'failed',
+    Data: {
+      Details: 'Too many signup attempts. Please wait.'
+    }
+  },
+  handler: (req, res, next, options) => {
+		if (req.rateLimit.used === req.rateLimit.limit + 1) {
+			// onLimitReached code here
+      blockedIPs.add(req.ip);
+    }
+		res.status(options.statusCode).send(options.message)
+	},
+
+});
+
+module.exports = {
+  loginLimiter,
+  signUpLimiter,
+  apiRateLimiter,
+  ipBlocker
+};

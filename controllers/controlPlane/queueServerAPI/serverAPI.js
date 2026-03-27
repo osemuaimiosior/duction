@@ -29,36 +29,6 @@ const sendResultToQueue = async (req, res) => {
   
 };
 
-// const create_NewQueue_And_Node_NewDetails = async (req, res) => {
-
-//   const queueName = req.body.QUEUE_NAME;
-//   const nodeDetails = req.body.QUEUE_PAYLOAD;
-
-//   try {
-
-//     await nodeState.create(nodeDetails);
-
-//     new Queue(queueName, { connection: queueConnection });
-
-//     console.log(`Queue initialized for node: ${queueName}`);
-
-//     return res.status(200).json({
-//       message: "Node registered",
-//       queue: queueName
-//     });
-
-//   } catch (err) {
-
-//     console.error("Failed to initialize Redis queue:", err.message);
-
-//     return res.status(500).json({
-//       error: err.message
-//     });
-
-//   }
-
-// };
-
 const heartBeatQueue = async (req, res) => {
   const nodePayload = req.body.NODE_PAYLOAD;
   

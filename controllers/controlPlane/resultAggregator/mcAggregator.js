@@ -1,4 +1,7 @@
 const JobChunk = require("../../../config/model/jobChunk");
+const queueConnection = require("../../../config/db/queue");
+const { Worker} = require('bullmq');
+const os = require("os"); 
 
 
 /**
@@ -18,64 +21,66 @@ const RESULTS_QUEUE_JOB_NAME = "node-mc-result";
 const nodeCode = process.env.NODE_CODE;
 const hostName = process.env.HOST_CODE;
 
-const nodeID =  `node-${hostName}-${nodeCode}`;
+// const nodeID =  `node-${hostName}-${nodeCode}`;
 
-const worker = new Worker(
-    RESULTS_QUEUE,
-    async job => {
+const resultAggregatorQueueWorker = async () => {
+    const worker = new Worker(
+        RESULTS_QUEUE,
+        async job => {
 
-      if (job.name === RESULTS_QUEUE_JOB_NAME && job.data.nodeId === nodeID) {
+        if (job.name === RESULTS_QUEUE_JOB_NAME) {
 
-        const payload = job.data;
+            const payload = job.data;
 
-        console.log("MC job received:", payload);
+            console.log("MC job received:", payload);
 
-        await newJob.upsert(payload);
+            await newJob.upsert(payload);
 
-       try {
+        try {
 
-            const msg = JSON.parse(message.body);
+                const msg = JSON.parse(message.body);
 
-            const { jobId, nodeId, chunkId, result, runs } = msg;
+                const { jobId, nodeId, chunkId, result, runs } = msg;
 
-            console.log("Result received:", msg);
+                console.log("Result received:", msg);
 
-            await updateChunkResult(msg);
+                await updateChunkResult(msg);
 
-            const complete = await isJobComplete(jobId);
+                const complete = await isJobComplete(jobId);
 
-            if (complete) {
+                if (complete) {
 
-                const finalResult = await aggregateJob(jobId);
+                    const finalResult = await aggregateJob(jobId);
 
-                console.log("Final Monte Carlo result:", finalResult);
+                    console.log("Final Monte Carlo result:", finalResult);
+
+                }
+
+            } catch (error) {
+
+                console.error("Aggregator error:", error);
 
             }
 
-        } catch (error) {
-
-            console.error("Aggregator error:", error);
+            done();
 
         }
 
-        done();
+        },
+        {
+        connection: queueConnection,
+        concurrency: os.cpus().length
+        }
+    );
 
-      }
-
-    },
-    {
-      connection: queueConnection,
-      concurrency: os.cpus().length
-    }
-  );
-
-   worker.on("completed", job => {
+    worker.on("completed", job => {
         console.log(`Job completed ${job.id}`);
     });
 
-  worker.on("failed", (job, err) => {
+    worker.on("failed", (job, err) => {
         console.error(`Job failed ${job?.id}`, err);
     });
+}
 
 async function updateChunkResult(msg) {
 
@@ -128,4 +133,8 @@ async function aggregateJob(jobId) {
 
     return weightedSum / totalRuns;
 
+}
+
+module.exports = {
+  resultAggregatorQueueWorker
 }
