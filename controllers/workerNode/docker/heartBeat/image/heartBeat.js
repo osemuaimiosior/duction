@@ -11,14 +11,44 @@ const osu = new OSUtils(); // Initialize OS utilities
 // const queueConnection = require('../config/db/queue');
 // const { Queue, Worker} = require('bullmq');
 const { exit } = require("process");
+const { exec } = require("child_process");
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
+
 
 // ==============================
 // Global Variables
 // ==============================
 
+const PROTO_PATH = path.join(__dirname, '..', 'registry.proto');
+const packageDefinition = protoLoader.loadSync(
+    PROTO_PATH,
+    {keepCase: true,
+     longs: String,
+     enums: String,
+     defaults: true,
+     oneofs: true
+    });
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).registry;
+const registryServerAddr = process.env.REGISTRY_SERVER_ADDRESS;
+const client = new protoDescriptor.Controlpanel(registryServerAddr, grpc.credentials.createInsecure());
+
+const PROTO_PATH = path.join(__dirname, 'registry.proto');
+const packageDefinition = protoLoader.loadSync(
+    PROTO_PATH,
+    {keepCase: true,
+     longs: String,
+     enums: String,
+     defaults: true,
+     oneofs: true
+    });
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).registry;
+const registryServerAddr = process.env.REGISTRY_SERVER_ADDRESS;
+const client = new protoDescriptor.Controlpanel(registryServerAddr, grpc.credentials.createInsecure());
+
+
 let NODE_CHANNEL =""; // Redis queue for this node
 const url = "http://localhost:3000/api/v1/send-heartBeat-queue";
-const url2 = "http://localhost:3000/api/v1/check-node-details";
 const cpuCores = os.cpus().length; // Number of CPU cores on the machine
 
 
@@ -27,21 +57,25 @@ const cpuCores = os.cpus().length; // Number of CPU cores on the machine
 // Purpose: Collect system stats and send heartbeat
 // ==============================
 
-async function getCPUStat(node_code, host_name){
-
-  const checkID = `node-${host_name}-${node_code}`;
-  // console.log(checkID);
+async function getCPUStat(NODE_CODE, HOST_NAME){
 
   try {
-    const senderNodeDetails = await axios.post(url2, {
-      "NODE_CODE": node_code,
-      "HOST_NAME": host_name
-    })
+   const feedback = await new Promise((resolve, reject) => {
+   
+         client.checkNodeDetails({ 
+             NODE_CODE, HOST_NAME
+           }, (err, response) => {
+   
+             if (err) {
+               return reject(err);
+             }
+             resolve(response);
+           });
+   
+       });
 
-    console.log(senderNodeDetails.data.details);
-
-    if(!senderNodeDetails.data) {
-      console.log("Invalid node sender details from linw 38 of heartBeat.js")
+    if(!feedback.details) {
+      console.log("Invalid node sender details from heartBeat.js")
       exit(1)
     };
 
@@ -164,10 +198,10 @@ async function getCPUStat(node_code, host_name){
     // console.log("System hostname:", overVInfo.system.hostname);
 
     NODE_CHANNEL =  "node" + "-" + overVInfo.system.hostname + "-" + node_code;
-    const expectedID = `node-${host_name}-${node_code}`;
+    const expectedID = `node-${HOST_NAME}-${NODE_CODE}`;
 
     if( expectedID !== NODE_CHANNEL){
-        console.log(`Invalid from ${NODE_CHANNEL}`);
+        console.log(`Invalid from ${expectedID}`);
 
         // TODO: Disable this node in the database if it doesn't match
     }
@@ -190,6 +224,12 @@ async function getCPUStat(node_code, host_name){
 
         // Node score calculation based on CPU cores, free RAM, and CPU usage
         const node_Score = (cpuCores * 5) + (ramFreeGB * 3) + (100 - cpuInfo.data) * 0.5
+
+        const nodeSystemInfo = overVInfo.system; 
+        const nodePlatformInfo = overVInfo.platform;
+        const clIResult = await getOpenCLInfo();
+        const clInformation = parseCLInfo(clIResult);
+        console.log("CL Information: ", clInformation)
     
         // Heartbeat payload to send to Redis queue or DB
         const nodePayload = {
@@ -199,6 +239,12 @@ async function getCPUStat(node_code, host_name){
           state: "heartBeat",
     
           cpuUsage: cpuInfo.data,
+
+          systemInfo: nodeSystemInfo,
+
+          clInfo: clInformation,
+
+          platform: nodePlatformInfo,
     
           cpuCores: cpuCores,
     
@@ -207,7 +253,9 @@ async function getCPUStat(node_code, host_name){
           ramFree: ramFreeGB,
     
           gpuUtilization: null,
+
           gpuMemoryFree: null,
+          
           temperature: null,
     
           simulationsPerSecond: null,
@@ -216,53 +264,46 @@ async function getCPUStat(node_code, host_name){
     
           nodeStatus: "online",
     
-          jobStatus: "idle",
+          // jobStatus: "idle",
     
           nodeScore: node_Score,
     
           lastHeartbeat: now
     
         }
-    
-        // Upsert instead of create (important for heartbeats)
-        // console.log("Node payload", nodePayload);
-        
-        // ------------------------------
-        // Send Heartbeat to Redis Queue
-        // ------------------------------
 
-      //  if (!nodeQueue) {
+      // ===== Send heartbeat Request =====
 
-      //       nodeQueue = new Queue("node-heartBeat", {
-      //           connection: queueConnection
-      //       });
+      const feedback = await new Promise((resolve, reject) => {
 
-      //       console.log("Queue initialized:", "node-heartBeat");
-      //   }
+      queueServerClient.heartBeatSignal({
+          QUEUE_NAME: NODE_CHANNEL,
+          QUEUE_PAYLOAD: JSON.stringify(nodePayload),
+          NODE_ID: node_Id
+        }, (err, response) => {
 
-      //   // Send heartbeat job
-      //   await nodeQueue.add("nodeHeartBeat", nodePayload, {
-      //     attempts: 3,
-      //     backoff: {
-      //       type: "exponential",
-      //       delay: 2000
-      //     }
-      //   });
+          if (err) {
+            return reject(err);
+          }
+          resolve(response);
+        });
 
-      // ===== POST heartbeat Request =====
-      const postResponse = await axios.post(url, {
-        NODE_PAYLOAD: nodePayload
-      });
+    });
 
-      // console.log(postResponse.data)
-
+    return feedback;
+     
       if (!postResponse.data) {
           console.log(`POST request failed from line 251 of heartBeat.js file: ${postResponse.status} ${postResponse.statusText}`);
       }
 
-      // const postData = await postResponse.json();
-      // console.log('POST Response:', postData);
-      // console.log("Node heartbeat saved:", nodeId)
+      if(postResponse.data.status === 200){
+        console.log("Node heartbeat saved:", nodeId)
+      };
+
+      if(postResponse.data.status === 400){
+        console.log("Node heartbeat failed:", nodeId)
+        exit(1);
+      };
     
       } catch (error) {
     
@@ -284,6 +325,99 @@ async function sendHeartBeat(){
   const hostName = process.env.HOST_NAME; // Hostname registration
   await getCPUStat(nodeCode, hostName);
 };
+
+function getOpenCLInfo() {
+  return new Promise((resolve, reject) => {
+    exec("clinfo", (error, stdout, stderr) => {
+      if (error) {
+        console.warn("clinfo failed, continuing without OpenCL info:", error.message || stderr || error);
+        return resolve("");
+      }
+
+      resolve(stdout || "");
+    });
+  });
+};
+
+function parseCLInfo(data) {
+  const result = {};
+
+  if (!data || typeof data !== "string") {
+    return result;
+  }
+
+  const lines = data.split("\n");
+  const separatorRegex = /^(.+?)(?:\s{2,}|:\s*)(.+)$/;
+
+  for (let line of lines) {
+    if (typeof line !== "string") {
+      continue;
+    }
+
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      continue;
+    }
+
+    const match = trimmedLine.match(separatorRegex);
+    if (!match) {
+      continue;
+    }
+
+    const key = match[1].trim();
+    const value = match[2].trim();
+    if (!key || !value) {
+      continue;
+    }
+
+    switch (key) {
+      case "Number of platforms":
+        result.platformCount = parseInt(value, 10);
+        break;
+      case "Platform Name":
+        if (!result.platformName) {
+          result.platformName = value;
+        }
+        break;
+      case "Platform Vendor":
+        result.platformVendor = value;
+        break;
+      case "Platform Version":
+        result.platformVersion = value;
+        break;
+      case "Number of devices":
+        result.deviceCount = parseInt(value, 10);
+        break;
+      case "Device Name":
+        if (!result.deviceName) {
+          result.deviceName = value;
+        }
+        break;
+      case "Device Vendor":
+        result.deviceVendor = value;
+        break;
+      case "Device Version":
+        result.deviceVersion = value;
+        break;
+      case "Device Type":
+        result.deviceType = value;
+        break;
+      case "Max compute units":
+        result.computeUnits = parseInt(value, 10);
+        break;
+      case "Global memory size":
+        result.globalMemory = value;
+        break;
+      case "Max clock frequency":
+        result.clockMHz = parseInt(value, 10);
+        break;
+      default:
+        break;
+    }
+  }
+
+  return result;
+}
 
 // ==============================
 // Run the heartbeat every 60 seconds

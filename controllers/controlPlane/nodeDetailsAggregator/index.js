@@ -1,7 +1,16 @@
 const nodeState = require("../../../config/model/nodeHeartBeat");
 const queueConnection = require('../../../config/db/queue');
 const { Worker} = require('bullmq');
-const os = require("os"); 
+const os = require("os");
+const path = require("path");
+const grpc = require("@grpc/grpc-js")
+const protoLoader = require("@grpc/proto-loader")
+
+const PROTO_PATH = path.join(__dirname, "clInfo.proto");
+
+const packageDef = protoLoader.loadSync(PROTO_PATH);
+const grpcObject = grpc.loadPackageDefinition(packageDef)
+const CLInfoService = grpcObject.CLInfoService
 
 const NODE_HEARTBEAT_QUEUE = "node-heartBeat";
 const NODE_HEARTBEAT_QUEUE_JOB_NAME = "node-HeartBeat-job";
@@ -21,7 +30,7 @@ const heartBeatWorkerQueue = async () => {
 
         const payload = job.data;
 
-        console.log("Node details recieved:", payload);
+        // console.log("Node details recieved:", payload);
 
        try {
 
@@ -49,6 +58,24 @@ const heartBeatWorkerQueue = async () => {
         console.error(`Job failed ${job?.id}`, err);
     });
 };
+
+// gRPC Implementation below
+
+function SendCLinfoDetails(call) {
+
+  };
+
+function getServer() {
+  const server = new grpc.Server();
+  server.addService(CLInfoService.service, {
+    SendCLinfoDetails
+  });
+  return server;
+};
+
+// NOTE: This module exports heartbeat aggregation helpers and should not
+// automatically bind a gRPC server during import. Start the gRPC service
+// from a dedicated entrypoint if needed.
 
 module.exports = {
   heartBeatWorkerQueue

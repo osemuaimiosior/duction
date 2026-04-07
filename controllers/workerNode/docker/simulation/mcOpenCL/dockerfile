@@ -1,12 +1,23 @@
 FROM ubuntu:22.04
 
+# Install system tools + OpenCL runtime
 RUN apt-get update && apt-get install -y \
+    apk add --no-cache \
+    bash \
     build-essential \
-    ocl-icd-opencl-dev \
+    util-linux \
+    pciutils \
+    curl \
+    ca-certificates \
     opencl-headers \
+    ocl-icd-opencl-dev \
     clinfo \
+    build-base \
+    python3 \
+    make \
     nodejs \
-    npm
+    npm \
+    g++
 
 WORKDIR /app
 
@@ -15,6 +26,9 @@ COPY kernel.cl .
 COPY worker.js .
 COPY config .
 COPY package.json .
+
+# Optional check for OpenCL
+RUN clinfo || true
 
 RUN gcc worker.c -o mc -lOpenCL
 

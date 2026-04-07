@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db/postgresCloud');
 
-const NodeState = sequelize.define("NodeState", {
+  const NodeState = sequelize.define("NodeState", {
 
     nodeId: {
       type: DataTypes.STRING,
@@ -9,20 +9,10 @@ const NodeState = sequelize.define("NodeState", {
       primaryKey: true
     },
 
-    systemInfo: {
-      type: DataTypes.JSONB,
-      allowNull: false
-    },
-
-    clInfo: {
-      type: DataTypes.JSONB,
-      allowNull: true
-    },
-
-    platform: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
+    // state: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false,
+    // },
 
     cpuUsage: {
       type: DataTypes.FLOAT,
@@ -103,6 +93,6 @@ const NodeState = sequelize.define("NodeState", {
       { fields: ["lastHeartbeat"] },
       { fields: ["nodeScore"] }
     ]
-});
+  });
 
   module.exports = NodeState;

@@ -1,4 +1,6 @@
 require('dotenv').config();
+const path = require("path");
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // ==============================
 // Node Environment & Heartbeat Script
@@ -14,15 +16,8 @@ const { execSync } = require("child_process"); // For running shell commands
 const crypto = require("crypto"); // For generating unique node IDs
 const { exists } = require('fs-extra');
 const { exit } = require('process');
-
-// Import database model to store node heartbeat information: This table tracks all active nodes and their health metrics
-// const nodeState = require("../config/model/nodeHeartBeat");
-
-// const { Queue, Worker} = require('bullmq');
-// const sequelize = require('../config/db/postgresCloud');
-// const queueConnection = require('../config/db/queue');
-// const url = `${process.env.TEST_DOMAIN_NAME}/create-new-queue`;
-
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
 
 /**
  * Function: run
@@ -112,6 +107,21 @@ const cpu = osu.cpu
 const mem = osu.memory
 const overV = osu.overview()
 
+const PROTO_PATH = path.join(__dirname, "..", 'queue.proto');
+const packageDefinition = protoLoader.loadSync(
+    PROTO_PATH,
+    {keepCase: true,
+     longs: String,
+     enums: String,
+     defaults: true,
+     oneofs: true
+    });
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).nodeDetails;
+const queueServerAddr = process.env.QUEUE_SERVER_ADDRESS;
+if (!queueServerAddr || typeof queueServerAddr !== 'string') {
+  throw new Error('Missing or invalid QUEUE_SERVER_ADDRESS; verify the .env file is loaded from the repository root and contains a valid string');
+}
+const queueServerClient = new protoDescriptor.NodeDetails(queueServerAddr, grpc.credentials.createInsecure());
 
 /**
  * Function: getCPUStat
@@ -223,7 +233,7 @@ async function getCPUStat ()  {
   try {
 
     // Prepare payload for this node
-    const nodeId = NODE_CHANNEL
+    const node_Id = NODE_CHANNEL
 
     // Convert bytes → GB
     const ramTotalGB = +(memInfo.data.total.bytes / (1024 ** 3)).toFixed(2)
@@ -238,11 +248,23 @@ async function getCPUStat ()  {
     // Node scoring system for scheduling and load balancing
     const node_Score = (cpuCores * 5) + (ramFreeGB * 3) + (100 - cpuInfo.data) * 0.5
 
+    const nodeSystemInfo = overVInfo.system; 
+    const nodePlatformInfo = overVInfo.platform;
+    
+    const nodeFingerprint = crypto
+      .createHash("sha256")
+      .update(node_Id)
+      .digest("hex");
+
     const nodePayload = {
 
-      nodeId: nodeId,
+      nodeId: node_Id,
 
       cpuUsage: cpuInfo.data,
+
+      systemInfo: nodeSystemInfo,
+
+      platform: nodePlatformInfo,
 
       cpuCores: cpuCores,
 
@@ -251,7 +273,9 @@ async function getCPUStat ()  {
       ramFree: ramFreeGB,
 
       gpuUtilization: null,
+
       gpuMemoryFree: null,
+      
       temperature: null,
 
       simulationsPerSecond: null,
@@ -269,52 +293,37 @@ async function getCPUStat ()  {
     }
 
     // Register node in DB and setup environment if not already registered
-    console.log(nodePayload);
+    const [prefix, owner, id] = nodePayload.nodeId.split("-");
 
-    await nodeEnvSetupAndRegistry(nodePayload);
+    console.log("Your HOST_NAME: ", owner);  // Osemudiamhen
+    console.log("Your NODE_CODE: ", id);     // 9c389a73
+
+    const feedback = await new Promise((resolve, reject) => {
+
+      queueServerClient.checkNodeDetailsCreatNewQueueAndSave({
+          QUEUE_NAME: NODE_CHANNEL,
+          QUEUE_PAYLOAD: JSON.stringify(nodePayload),
+          NODE_ID: node_Id
+        }, (err, response) => {
+
+          if (err) {
+            return reject(err);
+          }
+          resolve(response);
+        });
+
+    });
+
+    return feedback;
 
   } catch (error) {
 
     console.error("Error saving node stats:", error)
 
   }
-  /**
-   * Scaling note:
-   * ----------------
-   * When you have 10k+ nodes, storing each heartbeat directly in SQL becomes slow.
-   * Instead:
-   * - Worker nodes → Redis (live state)
-   * - Periodic snapshot → Postgres
-   */
     
 };
 
-const axios = require("axios");
-
-async function nodeEnvSetupAndRegistry(nodePayload) {
-
-  const url = "http://localhost:3000/api/v1/check-node-details-create-newQueue";
-
-  try {
-
-    const res = await axios.post(url, {
-      QUEUE_NAME: NODE_CHANNEL,
-      QUEUE_PAYLOAD: nodePayload,
-      NODE_ID: nodePayload.nodeId
-    });
-
-    console.log("Node registered:", res.data);
-
-  } catch (error) {
-
-    console.error("Registration failed:", error.response?.data || error.message);
-
-  }
-
-};
-
 logicDetection();
-
-//Docker container monitoring tool: cAdvisor, Prometheus etc
 
 

@@ -23,9 +23,17 @@ const nodeJobChunk = require("../../../config/model/jobChunk");
  */
 
 const { Op } = require("sequelize");
-
+const path = require("path");
 const { Queue, Worker} = require('bullmq');
 const queueConnection = require('../../../config/db/queue');
+const grpc = require("@grpc/grpc-js")
+const protoLoader = require("@grpc/proto-loader")
+
+const PROTO_PATH = path.join(__dirname, "job.proto");
+
+const packageDef = protoLoader.loadSync(PROTO_PATH);
+const grpcObject = grpc.loadPackageDefinition(packageDef)
+const WorkerService = grpcObject.WorkerService
 
 
 /**
@@ -60,7 +68,7 @@ const MAX_NODE_RUN = 1000000;
  * 5. Dispatch jobs to Redis queues
  */
 
-const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
+const scheduleJob = async (MODEL_TYPE, clinetAUTH, jobID, INPUT_DATA, RUNS, SIMULATION_TYPE) => {
 
   const requireMinRuns = process.env.MIN_RUN_SIMULATION;
 
@@ -129,6 +137,10 @@ const scheduleJob = async (MODEL_TYPE, CLIENT_ID, jobID, INPUT_DATA, RUNS, SIMUL
   }
 
 };
+
+const nodeQueue = new Queue("node-jobs", {
+        connection: queueConnection
+    });
 /**
  * Dispatch Job to Redis Queue. Each node has its own queue:
  *
@@ -151,10 +163,6 @@ async function dispatchJob(job) {
 
     const payloadStr = JSON.stringify(payload);
 
-    const nodeQueue = new Queue("node-jobs", {
-        connection: queueConnection
-    });
-
     // console.log("Queue initialized:", "node-heartBeat");
 
     // Send heartbeat job
@@ -166,6 +174,66 @@ async function dispatchJob(job) {
       }
     });
   };
+
+async function getJobFromQueue() {
+  const jobs = await nodeQueue.getJobs(["waiting"], 0, 0);
+
+  if (!jobs.length) return null;
+
+  const job = jobs[0];
+
+  return {
+    job_id: job.data.jobId,
+    payload: JSON.stringify(job.data)
+  };
+}
+
+// gRPC Implementation below
+
+function JobStream(call) {
+
+  console.log("Worker connected");
+
+  // Worker sends data
+  call.on("data", async (workerMessage) => {
+
+    if (workerMessage.job_result) {
+      console.log("Job result received:", workerMessage);
+    }
+
+  });
+
+  // Send jobs to worker
+  const interval = setInterval(async () => {
+
+    const job = await getJobFromQueue();
+
+    if (job) {
+      call.write(job);
+    }
+
+  }, 500);
+
+  call.on("end", () => {
+    clearInterval(interval);
+    call.end();
+  });
+
+}
+
+function getServer() {
+  const server = new grpc.Server();
+  server.addService(WorkerService.service, {
+    JobStream
+  });
+  return server;
+};
+
+// NOTE: This module exports scheduler helper functions and should not
+// automatically bind a gRPC server during import. Start the scheduler
+// gRPC service from a dedicated startup script if needed.
+
+
 
 /**
  * Split Simulation Runs into Chunks

@@ -92,12 +92,15 @@ const logOut = async (req, res) => {
     //const refreshToken = jwtToken;
     const authToken = Token;
 
-    const userDetails = await otcUserModel.findOne({"otc_login_token": authToken}).exec();
+    const userDetails = await clientModel.findOne({
+        where: {"accessToken": authToken}
+    });
+
     console.log(userDetails);
     if(userDetails) {
         //res.clearCookie('jwt', {httpOnly: true, secure: true, origin: process.env.BASE_URL }) //'http://localhost:4001'}); //Add in production environment = secure: true;
         //return res.sendStatus(204);
-        userDetails.otc_login_token = '';
+        userDetails.accessToken = '';
         await userDetails.save();
 
         return res.json({

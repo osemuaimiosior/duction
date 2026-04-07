@@ -1,28 +1,35 @@
-# Use lightweight Node runtime
+# Lightweight Node base
 FROM node:20-alpine
 
-# Install system tools needed for hardware detection
+# Install system tools + OpenCL runtime
 RUN apk add --no-cache \
     bash \
     util-linux \
     pciutils \
     curl \
-    ca-certificates
+    ca-certificates \
+    opencl-headers \
+    ocl-icd-opencl-dev \
+    clinfo \
+    build-base \
+    python3 \
+    make \
+    g++
 
-# Working directory inside container
+# Create app directory
 WORKDIR /app
 
-# Copy package files first (better caching)
+# Copy package files first (better Docker caching)
 COPY package*.json ./
 
-# Install dependencies
+# Install node dependencies
 RUN npm install --production
 
-# Copy application files
+# Copy application
 COPY . .
 
-# Optional: expose port if your worker exposes API
-# EXPOSE 3000
+# Optional check for OpenCL
+RUN clinfo || true
 
-# Default command
+# Start worker node
 CMD ["node", "image/nodeDetails.js"]

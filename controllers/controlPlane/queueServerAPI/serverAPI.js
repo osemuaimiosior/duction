@@ -30,7 +30,20 @@ const sendResultToQueue = async (req, res) => {
 };
 
 const heartBeatQueue = async (req, res) => {
-  const nodePayload = req.body.NODE_PAYLOAD;
+  // const nodePayload = req.body.NODE_PAYLOAD;
+  // const node_ID = nodePayload.nodeId;
+
+  // const nodeDetails = await nodeState.findOne({
+  //   where: {nodeID: node_ID }
+  // })
+
+  // if(!nodeDetails) {
+  //   return res.status(400).json({
+  //       status: 400,
+  //       message: "Failed",
+  //       details: "Invalid node ID detail"
+  //     });
+  // }
   
   try {
        await nodeHeartBeatQueue.add(NODE_HEARTBEAT_QUEUE_JOB_NAME, nodePayload, {
@@ -40,15 +53,20 @@ const heartBeatQueue = async (req, res) => {
             delay: 2000
           }
         });
-      console.log("sent");
+      // console.log("sent");
 
     } catch (err) {
-      console.error(err.message);
+      return res.status(400).json({
+        status: 400,
+        message: "Failed",
+        details: err.message
+      });
     }
 
     return res.status(200).json({
-        message: "Sent Heart beat",
-        details: nodePayload
+         status: 200,
+         message: "Sent Heart beat",
+        details: "done"
       });
 };
 

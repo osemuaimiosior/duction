@@ -11,17 +11,17 @@ __constant uint SOBOL_DIR_VECTORS[32] = {
 
 float sobol(uint i) {
     uint x = 0;
-
-    for(int bit = 0; bit < 32; bit++)
-    {
+    for(int bit = 0; bit < 32; bit++) {
         if(i & (1 << bit))
             x ^= SOBOL_DIR_VECTORS[bit];
     }
-
-    return (float)x / 4294967296.0f;
+    float u = (float)x / 4294967296.0f;
+    if(u < 1e-7f) u = 1e-7f; // clamp to avoid log(0)
+    return u;
 }
 
 float normal_from_uniform(float u) {
+    if (u <= 1e-7f) u = 1e-7f;  // avoid log(0)
     return sqrt(-2.0f * log(u)) * cos(6.2831853f * u);
 }
 

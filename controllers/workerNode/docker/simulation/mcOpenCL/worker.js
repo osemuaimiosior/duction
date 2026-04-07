@@ -3,10 +3,12 @@
 // ==============================
 
 // Import Node.js modules for executing external programs
-const { execFile } = require("child_process");
+const { execFile, exec } = require("child_process");
 
-// Import database model to verify node registration and heartbeat: This ensures only valid nodes can run simulation jobs
-// const newJob = require("../mcOpenCL/config//model/job");
+/** 
+ * Import database model to verify node job chunks 
+*/
+const nodeJobChunk = require("../mcOpenCL/config/model/jobChunk");
 // const nodeState = require("../mcOpenCL/config//model/nodeHeartBeat");
 
 const { spawn } = require("child_process");
@@ -14,7 +16,7 @@ const { spawn } = require("child_process");
 // Import OS module to get hostname
 const os = require("os");
 
-const queueConnection = require('./config/db/queue');
+const path = require("path");
 const { Queue, Worker} = require('bullmq');
 const { exit } = require("process");
 
@@ -32,9 +34,11 @@ const hostName = process.env.HOST_CODE;
 // });
 
 const nodeID =  `node-${hostName}-${nodeCode}`;
-const JOB_QUEUE = "node-jobs";
-const url = "http://www.localhost.com/job/result";
-// const url = `${process.env.TEST_DOMAIN_NAME}/job/result`;
+const jobQueueNamesapce = process.env.JOB_QUEUE_NAME_SPACE;
+const jobQueueJobName = process.env.JOB_QUEUE_JOB_NAME;
+const url = "http://localhost:3000/job/result";
+const detailsURL = "http://localhost:3000/check-node-details";
+
 
 
 // ==============================
@@ -55,22 +59,50 @@ const url = "http://www.localhost.com/job/result";
 
 async function simulate() {
 
-  const existingNode = await nodeState.findOne({
-    where: { nodeId: nodeID }
-  });
+  // const existingNode = await nodeState.findOne({
+  //   where: { nodeId: nodeID }
+  // })
 
-  if (!existingNode) {
-    console.log("Node code invalid");
-    process.exit(1);
-  }
+  const payload = {
+    HOST_NAME: hostName,
+    NODE_CODE: nodeCode
+  };
+
+  try {
+
+        // ===== POST Result Request =====
+        const postResponse = await fetch(detailsURL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!postResponse.ok) {
+            console.log(`POST request failed from line 80 of worker.js file: ${postResponse.status} ${postResponse.statusText}`);
+        }
+
+        const postData = await postResponse.json();
+
+        if (!postData) {
+          console.log("Node code invalid");
+          process.exit(1);
+        }
+        console.log('POST Response:', postData);
+
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
 
   console.log("Node verified:", nodeID);
 
   const worker = new Worker(
-    JOB_QUEUE,
+    jobQueueNamesapce,
     async job => {
 
-      if (job.name === "node-dispathed-jobs" && job.data.nodeId === nodeID) {
+      if (job.name === jobQueueJobName && job.data.nodeId === nodeID) {
 
         const payload = job.data;
 
@@ -79,9 +111,16 @@ async function simulate() {
         // await newJob.upsert(payload);
 
         try {
-          await runSimulation(payload);
+          result = await runSimulation(payload);
+
+          console.log("Worker result:", result);
+
+          return result;
+
         } catch (err) {
+
           console.error("Simulation failed:", err);
+
           throw err;
         }
 
@@ -94,8 +133,21 @@ async function simulate() {
     }
   );
 
-  worker.on("completed", job => {
-    console.log(`Job completed ${job.id}`);
+  worker.on("completed", async (job) => {
+    console.log("Job completed ID: ", `${job.id}\n`);
+    console.log("Job completed result: " , `${job.returnvalue}\n`);
+
+    const result = job.returnvalue;
+
+    await nodeJobChunk.update(
+      {
+        status: "completed",
+        result: result
+      },
+      {
+        where: { id: job.data.chunkId }
+      }
+    );
   });
 
   worker.on("failed", (job, err) => {
@@ -142,66 +194,55 @@ function startSimulationEngine() {
  *  Example: { id: "job123", modelType: "monte_carlo", runs: 1000000, S0: 100, K: 110, r: 0.05, sigma: 0.2, T: 1 }
  */
 
-
 function runSimulation(payload) {
 
   return new Promise((resolve, reject) => {
 
-    const input = `${payload.runs} ${payload.S0} ${payload.K} ${payload.r} ${payload.sigma} ${payload.T}\n`;
-    
-    mcProcess.stdin.write(input);
+    const sim = spawn("./mc");
 
-    mcProcess.stdout.once("data", async data => {
+    const data = payload.inputData;
 
-      const result = parseFloat(data.toString().trim());
+    const input = `${Number(data.runs)} ${data.S0} ${data.K} ${data.r} ${data.sigma} ${data.T}\n`;
 
-      if (isNaN(result)) {
+    sim.stdin.write(input);
+
+    let output = "";
+
+    sim.stdout.on("data", chunk => {
+      output += chunk.toString();
+    });
+
+    sim.stderr.on("data", err => {
+      console.error("MC stderr:", err.toString());
+    });
+
+    sim.on("error", err => {
+      reject(err);
+    });
+
+    sim.on("close", (code) => {
+
+      if (code !== 0) {
+        return reject(new Error(`Simulation exited with code ${code}`));
+      };
+
+      const result = parseFloat(output.trim());
+
+      console.log("Simulation result:", result);
+
+      if (!isFinite(result)) {
         return reject(new Error("Invalid result"));
       }
 
-      const resultPayload = {
-        jobId: payload.jobId,
-        chunkId: payload.chunkId,
-        nodeId: nodeID,
-        simResult: result,
-        runs: payload.runs,
-        timestamp: new Date()
-      };
-
-      // await nodeQueue.add(RESULTS_QUEUE_JOB_NAME, resultPayload);
-
-      //below write code to send result payload to the queue server API
-
-    try {
-
-        // ===== POST Result Request =====
-        const postResponse = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(resultPayload)
-        });
-
-        if (!postResponse.ok) {
-            console.log(`POST request failed from line 187 of worker.js file: ${postResponse.status} ${postResponse.statusText}`);
-        }
-
-        const postData = await postResponse.json();
-        console.log('POST Response:', postData);
-
-    } catch (error) {
-        console.error('Error:', error.message);
-    }
-
-      resolve(resultPayload);
+      resolve(result);
 
     });
 
+    sim.stdin.end();
+
   });
 
-}
+  }
 
 startSimulationEngine();
 simulate();

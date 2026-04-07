@@ -13,6 +13,9 @@ const timeout = require('connect-timeout');
 const nodeState = require("./config/model/nodeHeartBeat");
 const sequelize = require('./config/db/postgresCloud');
 const { Op } = require("sequelize");
+const {ipBlocker} = require("./middleware/rateLimiter");
+const {startControlPanelServer} = require("./server/main_control_panel/controlpanel");
+const {startQueueServer} = require("./server/queue_control_panel/queue");
 
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -34,6 +37,7 @@ app.use((req, res, next) => {
 // Middleware
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(ipBlocker);
 
 // Add request logging middleware
 app.use((req, res, next) => {
@@ -53,27 +57,6 @@ app.get("/health", (req, res) => {
   console.log("HEALTH ENDPOINT ACCESSED!");  
   res.status(200).json(healthInfo);
 });
-
-
-
-//If heartbeat > 15 seconds old → node offline
-// setInterval(async () => {
-
-//   const cutoff = new Date(Date.now() - 15000);
-
-//   await nodeState.update(
-//     { nodeStatus: "offline" },
-//     {
-//       where: {
-//         lastHeartbeat: {
-//           [Op.lt]: cutoff
-//         }
-//       }
-//     }
-//   );
-
-// }, 10000);
-
 
 async function startServer() {
   try {
@@ -100,14 +83,16 @@ startServer();
 // Start sequential workflow:
 // runSetup();
 
-////<======================= fabric network startup ======>>////
-
 ////<======================= System Configuration startup ======>>////
+
+//Start controll panel server
+startControlPanelServer();
+
+//Starts queue grpc server
+startQueueServer();
 
 // Start heart beat worker queue engine:
 heartBeatWorkerQueue();
 resultAggregatorQueueWorker();
-
-////<======================= System Configuration startup ======>>////
 
 

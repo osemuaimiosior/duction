@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { Client } = require("../config/model/clientAPI");
+// const { Client } = require("../config/model/");
 
 const authenticateClient = async (req, res, next) => {
   try {

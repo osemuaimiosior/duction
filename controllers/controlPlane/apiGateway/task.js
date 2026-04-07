@@ -4,10 +4,27 @@ const  newJobModel  = require("../../../config/model/newJob");
 const  nodeState  = require("../../../config/model/nodeHeartBeat");
 const { Queue, Worker} = require('bullmq');
 const queueConnection = require('../../../config/db/queue');
+const path = require("path");
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
 
 // Import the scheduler responsible for distributing jobs across compute nodes in the network
 
 const {scheduleJob} = require("../schedulerNode/index");
+
+
+const PROTO_PATH = path.join(__dirname, 'controlpanel.proto');
+const packageDefinition = protoLoader.loadSync(
+    PROTO_PATH,
+    {keepCase: true,
+     longs: String,
+     enums: String,
+     defaults: true,
+     oneofs: true
+    });
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).controlpanel;
+const controlPanellServerAddr = process.env.CONTROLL_PANEL_SERVER_ADDRESS;
+const client = new protoDescriptor.Controlpanel(controlPanellServerAddr, grpc.credentials.createInsecure());
 
 /**
  * API Controller: Create a new simulation job
@@ -74,7 +91,7 @@ const newJob = async (req, res) => {
      * - allow result retrieval later
      */
 
-    const clinetID = req.client.id;
+    const clinetAUTH = req.headers['authorization'];
 
     const job = await newJobModel.create({
       // The model being executed. Example: "risk_model_v3"
@@ -84,7 +101,7 @@ const newJob = async (req, res) => {
       inputData: INPUT_DATA,
 
        // Identify which client submitted the job
-      clientId: "23242fff", // example
+      clientId: clinetAUTH, // example
       // clientId: clinetID,
 
       // Type of simulation engine. Example: "monte_carlo"
@@ -108,7 +125,20 @@ const newJob = async (req, res) => {
 
     const jobID = job.id;
 
-    const feedback = await scheduleJob(MODEL_TYPE, clinetID, jobID, INPUT_DATA, minRuns, SIMULATION_TYPE);
+    const inputData = JSON.parse(JobData.INPUT_DATA);
+    const feedback = await new Promise((resolve, reject) => {
+
+      client.scheduleJob({ 
+          MODEL_TYPE, clinetAUTH, jobID, inputData, RUNS, SIMULATION_TYPE
+        }, (err, response) => {
+
+          if (err) {
+            return reject(err);
+          }
+          resolve(response);
+        });
+
+    });
     
     return res.status(201).json({
       success: true,
@@ -207,32 +237,54 @@ const checkNodeDetails = async (req, res) => {
     
     const NODEID = `node-${hostName}-${nodeCode}`
 
+    // console.log("HOST_NAME:", hostName);
+    // console.log("NODE_CODE:", nodeCode);
+    // console.log("NODEID:", NODEID);
+
     const existingNode = await nodeState.findOne({
       where: { nodeId: NODEID }
     });
+    
+    // console.log(existingNode.dataValues);
 
-    if (existingNode) {
+    if (existingNode.dataValues) {
 
         return res.status(200).json({
-          message: "Node registered",
-          details: existingNode
+          message: `Node ${NODEID} found`,
+          details: "done"
+          // details: existingNode
+        });
+
+        // return null;
+
+    } else {
+
+      return res.status(404).json({
+          result: "No node details",
+          status: 404
         });
     }
 
-    return res.status(404).json({
-      result: "No node details",
-      status: 404
-    });
-
   } catch (error) {
 
-    console.error("Error checking node:", error);
+      // console.error("Error checking node:", error);
 
-    res.status(500).json({
-      message: "Internal server error"
-    });
+      if (error.name === "SequelizeConnectionError") {
 
-  }
+        console.error("Database connection failed");
+
+        return res.status(503).json({
+          message: "Database unavailable"
+        });
+
+      }
+
+      console.error("Unexpected error:", error);
+
+      return res.status(500).json({
+        message: "Internal server error"
+      });
+    }
 };
 
 // Export controller so it can be used in route definitions
