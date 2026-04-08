@@ -58,8 +58,8 @@ async function checkNodeDetails (call, callback) {
     } else {
 
       callback(null, {
-          result: "No node details",
-          status: 404
+          message: "No node details",
+          details: "404"
         });
       }
 
@@ -71,14 +71,18 @@ async function checkNodeDetails (call, callback) {
         console.error("Database connection failed");
 
         callback(null, {
-          message: "Database unavailable"
+          message: "Database unavailable",
+          details: "error"
         });
 
+      } else {
+        console.error("Unexpected error:", error);
+
+        callback(null, {
+          message: "Internal server error",
+          details: error.message
+        });
       }
-
-      console.error("Unexpected error:", error);
-
-      callback(error, "Internal server error");
 
     }
 };

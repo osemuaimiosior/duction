@@ -5,6 +5,7 @@ package nodeDetails;
 service NodeDetails {
 
     rpc checkNodeDetailsCreatNewQueueAndSave(Details) returns (StatusMessage) {}      
+    rpc heartBeatSignal(Details) returns (StatusMessage) {}      
 }
 
 message Details {
@@ -15,5 +16,5 @@ message Details {
 
 message StatusMessage {
     string message = 1;
-    int32 details = 2;
+    string details = 2;
 }

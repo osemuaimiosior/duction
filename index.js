@@ -5,7 +5,6 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const { runSetup } = require('./network/setup');
-const {heartBeatWorkerQueue} = require("./controllers/controlPlane/nodeDetailsAggregator");
 const {resultAggregatorQueueWorker} = require("./controllers/controlPlane/resultAggregator/mcAggregator")
 const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
@@ -15,7 +14,8 @@ const sequelize = require('./config/db/postgresCloud');
 const { Op } = require("sequelize");
 const {ipBlocker} = require("./middleware/rateLimiter");
 const {startControlPanelServer} = require("./server/main_control_panel/controlpanel");
-const {startQueueServer} = require("./server/queue_control_panel/queue");
+const {startQueueServer, heartBeatWorkerQueue} = require("./server/queue_control_panel/queue");
+const {startRegistryServer} = require("./server/registry/registry");
 
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -90,6 +90,9 @@ startControlPanelServer();
 
 //Starts queue grpc server
 startQueueServer();
+
+//Starts registry grpc server
+startRegistryServer();
 
 // Start heart beat worker queue engine:
 heartBeatWorkerQueue();

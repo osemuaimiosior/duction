@@ -58,11 +58,28 @@ int main()
     cl_int ret;
 
     /* Platform + Device */
-    clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
-    clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, &ret_num_devices);
+    ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
+    if (ret != CL_SUCCESS) {
+        fprintf(stderr, "Failed to get OpenCL platform: %d\n", ret);
+        return 1;
+    }
+
+    ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, &ret_num_devices);
+    if (ret != CL_SUCCESS) {
+        fprintf(stderr, "GPU device unavailable, falling back to CPU device: %d\n", ret);
+        ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_CPU, 1, &device_id, &ret_num_devices);
+        if (ret != CL_SUCCESS) {
+            fprintf(stderr, "Failed to get a CPU device as fallback: %d\n", ret);
+            return 1;
+        }
+    }
 
     /* Context */
     context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
+    if (ret != CL_SUCCESS) {
+        fprintf(stderr, "Failed to create OpenCL context: %d\n", ret);
+        return 1;
+    }
 
     /* Command queue */
     command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
@@ -71,11 +88,33 @@ int main()
     program = clCreateProgramWithSource(context, 1,
                                         (const char **)&source_str,
                                         &source_size, &ret);
+    if (ret != CL_SUCCESS) {
+        fprintf(stderr, "Failed to create OpenCL program from source: %d\n", ret);
+        return 1;
+    }
 
-    clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+    ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+    if (ret != CL_SUCCESS) {
+        size_t log_size = 0;
+        clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+        char *log = (char *)malloc(log_size + 1);
+        if (log) {
+            clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, log_size, log, NULL);
+            log[log_size] = '\0';
+            fprintf(stderr, "Kernel build error (code %d):\n%s\n", ret, log);
+            free(log);
+        } else {
+            fprintf(stderr, "Kernel build error (code %d): failed to allocate log buffer\n", ret);
+        }
+        return 1;
+    }
 
     /* Kernel */
     kernel = clCreateKernel(program, "monteCarloOption", &ret);
+    if (ret != CL_SUCCESS) {
+        fprintf(stderr, "Failed to create kernel: %d\n", ret);
+        return 1;
+    }
 
     printf("MC Engine Ready\n");
     fflush(stdout);

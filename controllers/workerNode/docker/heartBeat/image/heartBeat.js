@@ -1,3 +1,6 @@
+const path = require("path");
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
 // ==============================
 // Node Heartbeat Monitoring Script
 // ==============================
@@ -10,6 +13,7 @@ const osu = new OSUtils(); // Initialize OS utilities
 // const nodeState = require("../config/model/nodeHeartBeat"); // Database model for node heartbeats
 // const queueConnection = require('../config/db/queue');
 // const { Queue, Worker} = require('bullmq');
+
 const { exit } = require("process");
 const { exec } = require("child_process");
 const grpc = require('@grpc/grpc-js');
@@ -31,20 +35,27 @@ const packageDefinition = protoLoader.loadSync(
     });
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).registry;
 const registryServerAddr = process.env.REGISTRY_SERVER_ADDRESS;
-const client = new protoDescriptor.Controlpanel(registryServerAddr, grpc.credentials.createInsecure());
+if (!registryServerAddr || typeof registryServerAddr !== 'string') {
+  throw new Error('Missing or invalid REGISTRY_SERVER_ADDRESS; verify the .env file is loaded from the repository root and contains a valid string');
+}
+const client = new protoDescriptor.Registry(registryServerAddr, grpc.credentials.createInsecure());
 
-const PROTO_PATH = path.join(__dirname, 'registry.proto');
-const packageDefinition = protoLoader.loadSync(
-    PROTO_PATH,
+
+const QUEU_SERVER_PROTO_PATH = path.join(__dirname, '..', 'queue.proto');
+const queueServerpackageDefinition = protoLoader.loadSync(
+    QUEU_SERVER_PROTO_PATH,
     {keepCase: true,
      longs: String,
      enums: String,
      defaults: true,
      oneofs: true
     });
-const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).registry;
-const registryServerAddr = process.env.REGISTRY_SERVER_ADDRESS;
-const client = new protoDescriptor.Controlpanel(registryServerAddr, grpc.credentials.createInsecure());
+const queueServerprotoDescriptor = grpc.loadPackageDefinition(queueServerpackageDefinition).nodeDetails;
+const queueServerAddr = process.env.QUEUE_SERVER_ADDRESS;
+if (!queueServerAddr || typeof queueServerAddr !== 'string') {
+  throw new Error('Missing or invalid QUEUE_SERVER_ADDRESS; verify the .env file is loaded from the repository root and contains a valid string');
+}
+const queueServerClient = new queueServerprotoDescriptor.NodeDetails(queueServerAddr, grpc.credentials.createInsecure());
 
 
 let NODE_CHANNEL =""; // Redis queue for this node
@@ -73,10 +84,12 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
            });
    
        });
+    
+      console.log(feedback);
 
-    if(!feedback.details) {
+    if(feedback.details !== "done") {
       console.log("Invalid node sender details from heartBeat.js")
-      exit(1)
+      // exit(1)
     };
 
   } catch (error){
@@ -197,7 +210,7 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
     // console.log("Processes Information",overVInfo.processes);
     // console.log("System hostname:", overVInfo.system.hostname);
 
-    NODE_CHANNEL =  "node" + "-" + overVInfo.system.hostname + "-" + node_code;
+    NODE_CHANNEL =  "node" + "-" + overVInfo.system.hostname + "-" + NODE_CODE;
     const expectedID = `node-${HOST_NAME}-${NODE_CODE}`;
 
     if( expectedID !== NODE_CHANNEL){
@@ -229,7 +242,7 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
         const nodePlatformInfo = overVInfo.platform;
         const clIResult = await getOpenCLInfo();
         const clInformation = parseCLInfo(clIResult);
-        console.log("CL Information: ", clInformation)
+        // console.log("CL Information: ", clInformation)
     
         // Heartbeat payload to send to Redis queue or DB
         const nodePayload = {
@@ -279,7 +292,7 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
       queueServerClient.heartBeatSignal({
           QUEUE_NAME: NODE_CHANNEL,
           QUEUE_PAYLOAD: JSON.stringify(nodePayload),
-          NODE_ID: node_Id
+          NODE_ID: nodeId
         }, (err, response) => {
 
           if (err) {
@@ -290,26 +303,28 @@ async function getCPUStat(NODE_CODE, HOST_NAME){
 
     });
 
-    return feedback;
+    console.log(feedback)
      
-      if (!postResponse.data) {
-          console.log(`POST request failed from line 251 of heartBeat.js file: ${postResponse.status} ${postResponse.statusText}`);
-      }
+    // if (!feedback.data) {
+    //     console.log(`POST request failed from line 251 of heartBeat.js file: ${feedback.status} ${feedback.statusText}`);
+    // }
 
-      if(postResponse.data.status === 200){
-        console.log("Node heartbeat saved:", nodeId)
-      };
+    // if(feedback.data.status === 200){
+    //   console.log("Node heartbeat saved:", nodeId)
+    // };
 
-      if(postResponse.data.status === 400){
-        console.log("Node heartbeat failed:", nodeId)
-        exit(1);
-      };
+    // if(feedback.data.status === 400){
+    //   console.log("Node heartbeat failed:", nodeId)
+    //   exit(1);
+    // };
+
+    return feedback;
     
-      } catch (error) {
-    
-        console.error("Error saving node stats:", error)
-    
-      }
+    } catch (error) {
+  
+      console.error("Error saving node stats:", error)
+  
+    }
     
 };
 

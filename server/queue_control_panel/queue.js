@@ -3,12 +3,16 @@ require('dotenv').config();
 const path = require("path");
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
-const { Queue} = require('bullmq');
+const { Queue, Worker} = require('bullmq');
 const queueConnection = require('../../config/db/queue');
 const nodeState = require("../../config/model/nodeHeartBeat");
+const os = require("os");
+const { exit } = require('process');
 
 const NODE_HEARTBEAT_QUEUE = "node-heartBeat";
 const NODE_HEARTBEAT_QUEUE_JOB_NAME = "node-HeartBeat-job";
+const RESULTS_QUEUE = "node-result";
+// const RESULTS_QUEUE_JOB_NAME = "node-mc-result";
 
 const nodeResultQueue = new Queue(RESULTS_QUEUE, {
   connection: queueConnection
@@ -108,7 +112,8 @@ async function checkNodeDetailsCreatNewQueueAndSave (call, callback) {
 
   } catch (error) {
 
-    console.error("Error checking node:", error);
+    console.error("Error checking node:", error.original.code);
+    if(error.original.code === 'ETIMEDOUT');
 
     callback(error, null);
 
@@ -121,7 +126,8 @@ async function heartBeatSignal (call, callback) {
 
     try {
 
-    let nodeDetails = requestData.nodeId;
+    let nodeDetails = requestData.QUEUE_PAYLOAD;
+    const NODEID = requestData.NODE_ID;
 
     if (typeof nodeDetails === "string") {
       try {
@@ -133,7 +139,7 @@ async function heartBeatSignal (call, callback) {
 
     const effectiveNodeId = NODEID || nodeDetails?.nodeId;
 
-    console.log("Checking node:", effectiveNodeId)
+    // console.log("Checking node:", effectiveNodeId)
 
     if (!nodeDetails || typeof nodeDetails !== "object") {
       throw new Error("Invalid node details payload");
@@ -144,12 +150,18 @@ async function heartBeatSignal (call, callback) {
     });
 
     if (!existingNode) {
+      console.log("Node details can not be found");
+      return callback(null, {
+        message: "Node details does not exist",
+        details: "404"
+      });
+    };
 
       try {
 
-        const feedback = await nodeState.update(nodeDetails);
+        // const feedback = await nodeState.update(nodeDetails);
 
-        await nodeHeartBeatQueue.add(NODE_HEARTBEAT_QUEUE_JOB_NAME, nodePayload, {
+        await nodeHeartBeatQueue.add(NODE_HEARTBEAT_QUEUE_JOB_NAME, nodeDetails, {
           attempts: 3,
           backoff: {
             type: "exponential",
@@ -157,31 +169,26 @@ async function heartBeatSignal (call, callback) {
           }
         });
 
-        callback(null, {
+        return callback(null, {
           message: "Node hertbeat saved",
-          details: feedback
+          details: "done"
         });
 
       } catch (err) {
 
         console.error("Failed to update node heart beat:", err.message);
 
-        callback(null, {
+        return callback(null, {
           message: "Error message",
           details: err.message
         });
 
       }
-    }
-
-    callback(null, {
-        message: "Node details does not exist",
-        details: 404
-    });
 
   } catch (error) {
 
-    console.error("Error checking node:", error);
+    console.error("Error checking node:", error.original.code);
+    if(error.original.code === 'ETIMEDOUT');
 
     callback(error, null);
 
@@ -213,6 +220,43 @@ const startQueueServer = () =>{
   });
 };
 
+const heartBeatWorkerQueue = async () => {
+  const worker = new Worker(
+    NODE_HEARTBEAT_QUEUE,
+    async job => {
+
+      if (job.name === NODE_HEARTBEAT_QUEUE_JOB_NAME) {
+
+        const payload = job.data;
+
+       try {
+
+            await nodeState.upsert(payload);
+
+        } catch (error) {
+
+            console.error("Node details aggregator error:", error);
+
+        };
+      }
+
+    },
+    {
+      connection: queueConnection,
+      concurrency: os.cpus().length
+    }
+  );
+
+  worker.on("completed", job => {
+        console.log(`Heart beat Job completed ${job.id}`);
+    });
+
+  worker.on("failed", (job, err) => {
+        console.error(`Heart beat Job failed ${job?.id}`, err);
+    });
+};
+
 module.exports = { 
-  startQueueServer 
+  startQueueServer,
+  heartBeatWorkerQueue
 };
