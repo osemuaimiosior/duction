@@ -213,6 +213,15 @@ function getServer() {
   return controllpanelServer;
 }
 
+// const serverCreds = grpc.ServerCredentials.createSsl(
+//   fs.readFileSync("ca.crt"), // CA cert
+//   [{
+//     cert_chain: fs.readFileSync("server.crt"),
+//     private_key: fs.readFileSync("server.key")
+//   }],
+//   false // does noot require client certificate (mTLS)
+// );
+
 const startControlPanelServer = () =>{
   const routeServer = getServer();
   const controlPanellServerAddr = process.env.CONTROLL_PANEL_SERVER_ADDRESS;
@@ -225,6 +234,15 @@ const startControlPanelServer = () =>{
     routeServer;
     console.log(`Control panel gRPC server started on ${controlPanellServerAddr}`);
   });
+
+  // routeServer.bindAsync(controlPanellServerAddr, serverCreds, (err, port) => {
+  //   if (err) {
+  //     console.error(`Failed to bind control panel server at ${controlPanellServerAddr}:`, err);
+  //     return;
+  //   }
+  //   routeServer;
+  //   console.log(`Control panel gRPC server started on ${controlPanellServerAddr}`);
+  // });
 
 };
 

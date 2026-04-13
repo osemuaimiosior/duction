@@ -15,5 +15,5 @@ message Details {
 
 message StatusMessage {
     string message = 1;
-    int32 details = 2;
+    string details = 2;
 }

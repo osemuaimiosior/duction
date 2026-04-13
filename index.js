@@ -14,6 +14,7 @@ const sequelize = require('./config/db/postgresCloud');
 const { Op } = require("sequelize");
 const {ipBlocker} = require("./middleware/rateLimiter");
 const {startControlPanelServer} = require("./server/main_control_panel/controlpanel");
+const {startMonitoringServer} = require("./server/monitoring_control_panel/monitoring");
 const {startQueueServer, heartBeatWorkerQueue} = require("./server/queue_control_panel/queue");
 const {startRegistryServer} = require("./server/registry/registry");
 
@@ -93,6 +94,9 @@ startQueueServer();
 
 //Starts registry grpc server
 startRegistryServer();
+
+//Starts node monitoring grpc server
+startMonitoringServer();
 
 // Start heart beat worker queue engine:
 heartBeatWorkerQueue();

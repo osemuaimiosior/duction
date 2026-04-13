@@ -107,7 +107,7 @@ async function checkNodeDetailsCreatNewQueueAndSave (call, callback) {
 
     callback(null, {
         message: "Node details already exist",
-        details: 404
+        details: "404"
     });
 
   } catch (error) {

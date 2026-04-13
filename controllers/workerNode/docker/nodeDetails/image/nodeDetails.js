@@ -21,7 +21,6 @@ const protoLoader = require('@grpc/proto-loader');
 
 /**
  * Function: run
- * ------------------
  * A helper to run shell commands synchronously and print output. Useful for setup scripts or testing GPU availability
  */
 
@@ -121,7 +120,35 @@ const queueServerAddr = process.env.QUEUE_SERVER_ADDRESS;
 if (!queueServerAddr || typeof queueServerAddr !== 'string') {
   throw new Error('Missing or invalid QUEUE_SERVER_ADDRESS; verify the .env file is loaded from the repository root and contains a valid string');
 }
+
+// const channelCreds = grpc.credentials.createSsl(
+//   fs.readFileSync("ca.crt"),
+//   fs.readFileSync("client.key"),
+//   fs.readFileSync("client.crt")
+// );
+
+// const metaCallback = (_params, callback) => {
+//     const meta = new grpc.Metadata();
+//     meta.add('custom-auth-header', 'token');
+//     callback(null, meta);
+// }
+
+// const callCreds = grpc.credentials.createFromMetadataGenerator(metaCallback);
+
+// const combCreds = grpc.credentials.combineChannelCredentials(
+//   channelCreds,
+//   callCreds
+// );
+
+// const client = new protoDescriptor.NodeDetails(queueServerAddr, combCreds);
 const queueServerClient = new protoDescriptor.NodeDetails(queueServerAddr, grpc.credentials.createInsecure());
+
+
+
+// const client = new WorkerService(
+//   "grpc.mycompute.com:50051",
+//   creds
+// );
 
 /**
  * Function: getCPUStat

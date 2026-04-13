@@ -1,0 +1,25 @@
+1. Get a list of available platforms
+
+2. Select device
+
+3. Create Context
+
+4. Create command queue
+
+5. Create memory objects
+
+6. Read kernel file
+
+7. Create program object The OpenCL Programming Book 78
+
+8. Build kernel
+
+9. Create kernel object
+
+10. Set kernel arguments
+
+11. Execute kernel (Enqueue task) ← hello() kernel function is called here
+
+12. Read memory object
+
+13. Free objects
