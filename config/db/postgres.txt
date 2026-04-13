@@ -1,0 +1,11 @@
+docker run -d \
+  --name grid-postgres \
+  -e POSTGRES_USER=griduser \
+  -e POSTGRES_PASSWORD=gridpass \
+  -e POSTGRES_DB=gridcompute \
+  -p 5432:5432 \
+  postgres:16
+
+docker exec -it grid-postgres psql -U griduser -d gridcompute
+
+SELECT * FROM <db table>;

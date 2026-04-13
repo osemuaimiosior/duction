@@ -5,13 +5,22 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const { runSetup } = require('./network/setup');
+const {resultAggregatorQueueWorker} = require("./controllers/controlPlane/resultAggregator/mcAggregator")
 const v1Router = require('./router/v1');
-// const v1CGPURouter = require('./router/CGPU/v1');
 const timeout = require('connect-timeout');
+// const db = require("./config/model");
+const nodeState = require("./config/model/nodeHeartBeat");
+const sequelize = require('./config/db/postgresCloud');
+const { Op } = require("sequelize");
+const {ipBlocker} = require("./middleware/rateLimiter");
+const {startControlPanelServer} = require("./server/main_control_panel/controlpanel");
+const {startMonitoringServer} = require("./server/monitoring_control_panel/monitoring");
+const {startQueueServer, heartBeatWorkerQueue} = require("./server/queue_control_panel/queue");
+const {startRegistryServer} = require("./server/registry/registry");
 
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-
+// connectDB()
 console.log(`Starting application with NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`Environment variables loaded:`);
 console.log(`- PORT: ${process.env.PORT}`);
@@ -20,20 +29,16 @@ console.log(`- POSTGRES_URL present: ${!!process.env.POSTGRES_URL}`);
 const PORT = process.env.PORT || 5600;
 
 // set timeout of 15s for all routes
-app.use(timeout('15s'));
+app.use(timeout('60s'));
 app.use((req, res, next) => {
   if (!req.timedout) next();
 });
 
-// Connect to database
-// connectDB().catch(err => {
-//   console.error('Database connection failed:', err);
-//   process.exit(1);
-// });
 
 // Middleware
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(ipBlocker);
 
 // Add request logging middleware
 app.use((req, res, next) => {
@@ -43,7 +48,6 @@ app.use((req, res, next) => {
 
 // Routes
 app.use("/api/v1", v1Router);
-// app.use("/api/cgpu/v1", v1CGPURouter);
 
 app.get("/health", (req, res) => {
   const healthInfo = {
@@ -51,39 +55,51 @@ app.get("/health", (req, res) => {
     "timestamp": new Date().toISOString(),
   };
   
-  console.log("🏥 HEALTH ENDPOINT ACCESSED!");  
+  console.log("HEALTH ENDPOINT ACCESSED!");  
   res.status(200).json(healthInfo);
 });
 
-// Serve static files
-// app.use(express.static(path.join(__dirname)));
+async function startServer() {
+  try {
+    await sequelize.authenticate();
+    console.log("PostgreSQL connected");
 
-// Routes
-// app.get(['/', '/index', '/index.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'index.html'));
-// });
+     await sequelize.sync({ alter: true }); //dev mode
+    //  await db.sequelize.sync({ alter: true }); //prod mode
+    console.log("Models synchronized");
 
-// app.get(['/login', '/login.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'login.html'));
-// });
+    app.listen(3000, () => {
+      console.log("Server running on port 3000");
+    });
 
-// app.get(['/register', '/register.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'register.html'));
-// });
+  } catch (err) {
+    console.error("DB connection failed:", err);
+  }
+}
 
-// app.get(['/dashboard', '/dashboard.html'], (req, res) => {
-//     res.sendFile(path.join(__dirname, 'dashboard.html'));
-// });
-
-app.listen(PORT,  () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+startServer();
 
 ////<======================= fabric network startup ======>>////
 
 // Start sequential workflow:
-runSetup();
+// runSetup();
 
-////<======================= fabric network startup ======>>////
+////<======================= System Configuration startup ======>>////
+
+//Start controll panel server
+startControlPanelServer();
+
+//Starts queue grpc server
+startQueueServer();
+
+//Starts registry grpc server
+startRegistryServer();
+
+//Starts node monitoring grpc server
+startMonitoringServer();
+
+// Start heart beat worker queue engine:
+heartBeatWorkerQueue();
+resultAggregatorQueueWorker();
 
 

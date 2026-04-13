@@ -1,0 +1,45 @@
+step 1. Install GPU drivers on the host
+    sudo apt update
+    sudo apt install nvidia-driver-535
+
+    Verify: nvidia-smi
+
+step 2. Install Docker if not already installed.
+    sudo apt install docker.io
+    sudo systemctl start docker
+    sudo systemctl enable docker
+
+    Verify: docker --version
+
+step 3. Install NVIDIA container runtime
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+
+    curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
+
+    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list \
+    | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+    sudo apt update
+    sudo apt install nvidia-container-toolkit
+
+    Configure runtime: sudo nvidia-ctk runtime configure --runtime=docker
+
+    Restart docker: sudo systemctl restart docker
+
+step 4. Test GPU access inside Docker
+    Before running your app, verify GPU passthrough works.
+
+    docker run --rm --gpus all nvidia/cuda:12.2.0-base nvidia-smi
+
+    If everything is correct, the container will display GPU info.
+
+step 5. Build your Monte Carlo node image
+    docker pull yourdockerhub/montecarlo-node
+
+step 6. Run the compute node
+    docker run -d \
+    --restart unless-stopped \
+    --gpus all \
+    --name mc-node \
+    -e NODE_CODE=abc123 \
+    yourdockerhub/montecarlo-node

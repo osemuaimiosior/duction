@@ -1,0 +1,10 @@
+sudo apt update
+sudo apt install ocl-icd-opencl-dev opencl-headers clinfo
+
+
+//Install POCL (Portable OpenCL) which runs OpenCL on CPU.
+sudo apt update
+sudo apt install pocl-opencl-icd clinfo
+
+//Complie C code
+gcc mcHost.c -o mc_simulation -lOpenCL -lm

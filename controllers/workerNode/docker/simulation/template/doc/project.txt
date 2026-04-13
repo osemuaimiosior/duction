@@ -1,0 +1,11 @@
+Video transcoding
+AI Image / Video Generation API
+Rendering jobs
+Financial simulations
+AI inference
+Scientific Compute Marketplace: protein folding, physics simulations, climate modeling
+Password Cracking / Security Audits
+Game Server Hosting Grid
+Blockchain Data Indexing
+Machine Learning Training
+CAPTCHA Solving Infrastructure

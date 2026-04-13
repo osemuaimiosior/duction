@@ -1,0 +1,47 @@
+Resource Monitor
+      ↓
+Heartbeat Service
+      ↓
+Task Fetcher
+      ↓
+Task received
+      ↓
+Create container
+      ↓
+Run simulation
+      ↓
+Destroy container
+      ↓
+Result Sender
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+Minimum Node requirement
+
+//////////////////////////////////////////////////////
+
+
+CPU: 11th Gen Intel Core i3‑1125G4
+
+Cores / Threads: 4 cores / 8 threads
+
+Base frequency: 2.0 GHz (boost ~3.7 GHz)
+
+RAM: 8 GB @ 3200 MT/s
+
+GPU: Intel UHD Graphics (128 MB dedicated, shared memory)
+
+Storage: 477 GB
+
+/////////////////////////
+
+Near Real-time Node monitoring
+
+////////////////////////////
+
+Non Nvida GPU: node-os-utils
+
+Nvidia chip: NVML
+
+AMD Chips: ROCm System Management Interface (ROCm SMI)

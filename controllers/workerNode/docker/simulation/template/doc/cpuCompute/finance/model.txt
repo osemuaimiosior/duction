@@ -1,0 +1,15 @@
+//API's to expose: Montel carlos financial simulations
+1. POST /risk/var
+
+2. POST /options/price
+Inputs: spot price, volatility, strike, maturity, number of paths
+
+3. POST /portfolio/stress
+Simulate events like: market crash, interest rate spike, FX shocks
+
+//Market
+
+crypto trading firms
+quant traders
+prop desks
+hedge funds

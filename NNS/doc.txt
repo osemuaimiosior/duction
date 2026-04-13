@@ -1,0 +1,3 @@
+NNS = Node name service
+
+Node start => Send system information to NNS => start

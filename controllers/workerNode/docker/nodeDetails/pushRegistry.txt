@@ -1,0 +1,32 @@
+step 1. 
+
+docker build -t nodedetails .
+
+step 2. 
+
+Docker Hub
+
+docker tag nodedetails osemu/nodedetails
+docker push osemu/nodedetails
+
+Private registry
+
+registry.yourdomain.com/nodeDetails
+
+///user install
+
+step 5. Build your Monte Carlo node image
+    docker pull yourdockerhub/nodeDetails
+
+step 6. Run the compute node with GPU
+    docker run -d \
+    --restart unless-stopped \
+    --gpus all \
+    --name nodedetails \
+    osemu/nodedetails
+
+step 6. Run the compute node genral
+    docker run -d \
+    --restart unless-stopped \
+    --name nodedetails \
+    osemu/nodedetails
