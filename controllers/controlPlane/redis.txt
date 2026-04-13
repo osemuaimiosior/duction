@@ -1,0 +1,38 @@
+///Start via docker
+
+docker run -p 6379:6379 -d redis:8.0-rc1
+
+//Production build
+
+1. Option A — Self Hosted Redis (Cheapest) => Run Redis on a VPS:
+
+sudo apt install redis-server
+/etc/redis/redis.conf
+Change: bind 127.0.0.1 to bind 0.0.0.0
+
+Then restart: sudo systemctl restart redis
+
+Now nodes connect using: host: "SERVER_IP". Example: 165.22.55.10
+
+2. Option B — Managed Redis (Easiest)
+
+Use a hosted Redis: AWS ElastiCache, Upstash, Redis Cloud
+
+options: {
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  password: process.env.REDIS_PASSWORD
+}
+
+3. Option C — Redis Cluster (For Huge Systems);
+
+
+//////// NOTE VERY IMPORTANT////////////////
+
+Right now all nodes push to one queue:
+
+simulation-job-result
+
+When you scale to 1000+ nodes, this queue becomes a bottleneck.
+
+The fix is sharded result queues.

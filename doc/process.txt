@@ -1,0 +1,17 @@
+Client
+   ↓
+API
+   ↓
+Scheduler
+   ↓
+Split simulation into chunks
+   ↓
+Send chunks to many nodes
+   ↓
+Nodes run OpenCL simulation
+   ↓
+Return partial results
+   ↓
+Aggregator combines results
+   ↓
+Final result returned

@@ -1,7 +1,28 @@
-./env
-./node_modules
-./src
-./fabric-samples
-./fabric
-./vscode
-./build
+# Env
+.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build
+build/
+dist/
+
+# Fabric
+fabric/
+fabric-samples/
+*.tar.gz
+*.block
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: fabric-{{ORG}}-pv
+  labels:
+    name: {{ORG}}
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  # storageClassName: fabric-local
+  claimRef:
+    namespace: duction
+    name: fabric-{{ORG}}
+  hostPath:
+    path: /tmp/fabric-{{ORG}}

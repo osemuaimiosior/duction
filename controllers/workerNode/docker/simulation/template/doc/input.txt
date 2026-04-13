@@ -1,0 +1,21 @@
+{
+  "jobType": "monte_carlo",
+  "runs": 1000000,
+  "S0": 100,
+  "K": 100,
+  "r": 0.05,
+  "sigma": 0.2,
+  "T": 1
+}
+
+Next Step (Important)
+
+To make this commercial grade, you should add:
+
+✔ parallel random number generator
+✔ VaR calculation
+✔ portfolio simulation
+✔ GPU memory batching
+✔ multi-asset simulations
+
+derivatives pricing for banks

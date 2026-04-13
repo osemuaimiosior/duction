@@ -1,0 +1,23 @@
+step 1. 
+
+docker build -t mcopencl .
+
+step 2. 
+
+Docker Hub
+
+docker tag mcopencl osemu/mcopencl
+docker push osemu/mcopencl
+
+Private registry
+
+registry.yourdomain.com/mcopencl
+
+
+//user runs sthe below CLI command
+step 6. Run the compute node genral
+    docker run -d \
+    --restart unless-stopped \
+    --name mcopencl \
+    -e DOMAIN_NAME=<dominname.com> \
+    osemu/mcopencl

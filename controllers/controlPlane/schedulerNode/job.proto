@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+service WorkerService {
+
+  rpc JobStream(stream WorkerMessage) returns (stream DispatcherMessage);
+
+}
+
+message WorkerMessage {
+  string worker_id = 1;
+  string job_result = 2;
+  string job_id = 3;
+}
+
+message DispatcherMessage {
+  string job_id = 1;
+  string payload = 2;
+}

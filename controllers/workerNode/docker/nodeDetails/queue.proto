@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package nodeDetails;
+
+service NodeDetails {
+
+    rpc checkNodeDetailsCreatNewQueueAndSave(Details) returns (StatusMessage) {}      
+}
+
+message Details {
+    string QUEUE_NAME = 1;
+    string QUEUE_PAYLOAD = 2;
+    string NODE_ID = 3;
+}
+
+message StatusMessage {
+    string message = 1;
+    string details = 2;
+}

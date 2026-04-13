@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package registry;
+
+service Registry {
+
+    rpc checkNodeDetails(Details) returns (StatusMessage) {}      
+}
+
+message Details {
+    string NODE_CODE = 1;
+    string HOST_NAME = 2;
+}
+
+message StatusMessage {
+    string message = 1;
+    string details = 2;
+}

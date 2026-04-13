@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package controlpanel;
+
+service Controlpanel {
+
+    rpc scheduleJob(JobData) returns (StatusMessage) {}      
+}
+
+message JobData {
+    string MODEL_TYPE = 1;
+    string clinetAUTH = 2;
+    string jobID = 3;
+    string INPUT_DATA = 4;
+    int32 RUNS = 5;
+    string SIMULATION_TYPE = 6;
+}
+
+message StatusMessage {
+    string message = 1;
+    int32 chunkCount = 2;
+}

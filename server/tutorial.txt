@@ -1,0 +1,80 @@
+1️⃣ Unary RPC (single request → single response)
+
+Proto:
+
+rpc scheduleJob(JobData) returns (StatusMessage);
+
+Handler:
+
+function scheduleJob(call, callback) {
+   const job = call.request;
+
+   callback(null, {
+     message: "Job scheduled",
+     chunkCount: 10
+   });
+}
+
+✔ Uses callback
+
+2️⃣ Server streaming (single request → multiple responses)
+
+Proto:
+
+rpc scheduleJob(JobData) returns (stream StatusMessage);
+
+Handler:
+
+function scheduleJob(call) {
+
+   call.write({ message: "Step 1" });
+   call.write({ message: "Step 2" });
+
+   call.end();
+}
+
+✔ NO callback
+
+3️⃣ Client streaming (multiple requests → single response)
+
+Proto:
+
+rpc scheduleJob(stream JobData) returns (StatusMessage);
+
+Handler:
+
+function scheduleJob(call, callback) {
+
+   call.on('data', job => {});
+
+   call.on('end', () => {
+       callback(null, {
+         message: "Job scheduled"
+       });
+   });
+
+}
+
+✔ Uses callback
+
+4️⃣ Bidirectional streaming (stream ↔ stream)
+
+Your case:
+
+rpc scheduleJob(stream JobData) returns (stream StatusMessage);
+
+Handler:
+
+function scheduleJob(call) {
+
+  call.on('data', job => {
+     call.write({ message: "received" });
+  });
+
+  call.on('end', () => {
+     call.end();
+  });
+
+}
+
+✔ NO callback

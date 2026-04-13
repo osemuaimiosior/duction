@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package systemState;
+
+service SystemState {    
+    rpc getSystemState(GetSystemStateRequest) returns (StatusMessage);
+}
+
+message GetSystemStateRequest {}
+
+message StatusMessage {
+    string message = 1;
+    string details = 2;
+}
