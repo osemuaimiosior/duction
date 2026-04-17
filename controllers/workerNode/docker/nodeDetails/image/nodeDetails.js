@@ -1,6 +1,12 @@
-require('dotenv').config();
+const fs = require('fs');
 const path = require("path");
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
+const localEnvPath = path.resolve(__dirname, '..', '.env');
+if (fs.existsSync(localEnvPath)) {
+  require('dotenv').config({ path: localEnvPath });
+} else {
+  throw new Error(`Missing local .env file for nodeDetails container: ${localEnvPath}`);
+}
 
 // ==============================
 // Node Environment & Heartbeat Script
@@ -14,10 +20,10 @@ const osu = new OSUtils();
 const os = require("os"); // For hostname, CPU cores, etc.
 const { execSync } = require("child_process"); // For running shell commands
 const crypto = require("crypto"); // For generating unique node IDs
-const { exists } = require('fs-extra');
 const { exit } = require('process');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
+const { ConsoleLogger } = require('redis-smq-common');
 
 /**
  * Function: run
@@ -106,7 +112,7 @@ const cpu = osu.cpu
 const mem = osu.memory
 const overV = osu.overview()
 
-const PROTO_PATH = path.join(__dirname, "..", 'queue.proto');
+const PROTO_PATH = path.join(__dirname, "..", 'registry.proto');
 const packageDefinition = protoLoader.loadSync(
     PROTO_PATH,
     {keepCase: true,
@@ -115,33 +121,12 @@ const packageDefinition = protoLoader.loadSync(
      defaults: true,
      oneofs: true
     });
-const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).nodeDetails;
-const queueServerAddr = process.env.QUEUE_SERVER_ADDRESS;
-if (!queueServerAddr || typeof queueServerAddr !== 'string') {
-  throw new Error('Missing or invalid QUEUE_SERVER_ADDRESS; verify the .env file is loaded from the repository root and contains a valid string');
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).registry;
+const registryServerAddr = process.env.REGISTRY_SERVER_ADDRESS;
+if (!registryServerAddr || typeof registryServerAddr !== 'string') {
+  throw new Error('Missing or invalid REGISTRY_SERVER_ADDRESS; verify the .env file is loaded from the repository root and contains a valid string');
 }
-
-// const channelCreds = grpc.credentials.createSsl(
-//   fs.readFileSync("ca.crt"),
-//   fs.readFileSync("client.key"),
-//   fs.readFileSync("client.crt")
-// );
-
-// const metaCallback = (_params, callback) => {
-//     const meta = new grpc.Metadata();
-//     meta.add('custom-auth-header', 'token');
-//     callback(null, meta);
-// }
-
-// const callCreds = grpc.credentials.createFromMetadataGenerator(metaCallback);
-
-// const combCreds = grpc.credentials.combineChannelCredentials(
-//   channelCreds,
-//   callCreds
-// );
-
-// const client = new protoDescriptor.NodeDetails(queueServerAddr, combCreds);
-const queueServerClient = new protoDescriptor.NodeDetails(queueServerAddr, grpc.credentials.createInsecure());
+const registryServerClient = new protoDescriptor.Registry(registryServerAddr, grpc.credentials.createInsecure());
 
 
 
@@ -159,7 +144,9 @@ const queueServerClient = new protoDescriptor.NodeDetails(queueServerAddr, grpc.
  * 4. Send metrics to Redis queue for scheduler consumption
  */
 
+
 async function getCPUStat ()  {
+
     /**
      * CPU Usage ouput data
      * {
@@ -283,13 +270,24 @@ async function getCPUStat ()  {
       .update(node_Id)
       .digest("hex");
 
+    const userToken = {
+      USER_AUTH: process.env.USER_AUTH,
+      ID: node_Id
+    };
+    // console.log('USER_AUTH token loaded:', !!userToken);
+
+    if (!process.env.USER_AUTH || process.env.USER_AUTH === undefined) {
+      console.error('Missing USER_AUTH env value in nodeDetails container .env');
+      process.exit(1);
+    }
+
     const nodePayload = {
 
       nodeId: node_Id,
 
       cpuUsage: cpuInfo.data,
 
-      systemInfo: nodeSystemInfo,
+      systemInfo: JSON.stringify(nodeSystemInfo),
 
       platform: nodePlatformInfo,
 
@@ -319,19 +317,11 @@ async function getCPUStat ()  {
 
     }
 
-    // Register node in DB and setup environment if not already registered
-    const [prefix, owner, id] = nodePayload.nodeId.split("-");
-
-    console.log("Your HOST_NAME: ", owner);  // Osemudiamhen
-    console.log("Your NODE_CODE: ", id);     // 9c389a73
+    // console.log("nodePayload: ", nodePayload);
 
     const feedback = await new Promise((resolve, reject) => {
 
-      queueServerClient.checkNodeDetailsCreatNewQueueAndSave({
-          QUEUE_NAME: NODE_CHANNEL,
-          QUEUE_PAYLOAD: JSON.stringify(nodePayload),
-          NODE_ID: node_Id
-        }, (err, response) => {
+      registryServerClient.checkAuthClientDetails(userToken, (err, response) => {
 
           if (err) {
             return reject(err);
@@ -341,16 +331,40 @@ async function getCPUStat ()  {
 
     });
 
-    return feedback;
+    // console.log('Registry auth response:', feedback);
+
+    if (!feedback || feedback.message !== "Client auth details found") {
+      console.error('Registry auth failed or returned unexpected response:', feedback);
+      process.exit(1);
+    }
+
+    // Register node in DB and setup environment if not already registered
+
+     const fb = await new Promise((resolve, reject) => {
+
+      registryServerClient.registerNodeDetails({nodePayload, userToken}, (err, response) => {
+
+          if (err) {
+            return reject(err);
+          }
+          resolve(response);
+        });
+
+    });
+
+    console.log(fb);
+
+    const [prefix, owner, id] = nodePayload.nodeId.split("-");
+
+    console.log("Your HOST_NAME: ", owner);  // Osemudiamhen
+    console.log("Your NODE_CODE: ", id);     // 9c389a73
 
   } catch (error) {
 
-    console.error("Error saving node stats:", error)
+    console.error("Error saving node stats:", error);
 
   }
     
 };
 
 logicDetection();
-
-

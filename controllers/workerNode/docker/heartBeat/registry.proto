@@ -5,11 +5,16 @@ package registry;
 service Registry {
 
     rpc checkNodeDetails(Details) returns (StatusMessage) {}      
+    rpc checkAuthClientDetails(Detailstwo) returns (StatusMessage) {}      
 }
 
 message Details {
     string NODE_CODE = 1;
     string HOST_NAME = 2;
+}
+
+message Detailstwo {
+    string USER_AUTH = 1;
 }
 
 message StatusMessage {

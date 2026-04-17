@@ -5,6 +5,7 @@ const  nodeState  = require("../../../config/model/nodeHeartBeat");
 const { Queue, Worker} = require('bullmq');
 const queueConnection = require('../../../config/db/queue');
 const path = require("path");
+const fs = require('fs');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 
@@ -24,7 +25,14 @@ const packageDefinition = protoLoader.loadSync(
     });
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).controlpanel;
 const controlPanellServerAddr = process.env.CONTROLL_PANEL_SERVER_ADDRESS;
-const client = new protoDescriptor.Controlpanel(controlPanellServerAddr, grpc.credentials.createInsecure());
+
+const GRPC_TLS_ENABLED = process.env.GRPC_TLS_ENABLED === 'true';
+const GRPC_ROOT_CERT = process.env.GRPC_ROOT_CERT || path.resolve(__dirname, '../../../certs/ca.crt');
+const GRPC_AUTH_TOKEN = process.env.GRPC_AUTH_TOKEN || process.env.CONTROL_PANEL_API_TOKEN || '';
+const clientCredentials = GRPC_TLS_ENABLED
+  ? grpc.credentials.createSsl(fs.readFileSync(GRPC_ROOT_CERT))
+  : grpc.credentials.createInsecure();
+const client = new protoDescriptor.Controlpanel(controlPanellServerAddr, clientCredentials);
 
 /**
  * API Controller: Create a new simulation job
@@ -125,19 +133,31 @@ const newJob = async (req, res) => {
 
     const jobID = job.id;
 
-    const inputData = JSON.parse(JobData.INPUT_DATA);
+    const inputData = JSON.stringify(INPUT_DATA);
+    const metadata = new grpc.Metadata();
+    if (GRPC_AUTH_TOKEN) {
+      metadata.set('authorization', GRPC_AUTH_TOKEN);
+    }
+
     const feedback = await new Promise((resolve, reject) => {
+      const request = {
+        MODEL_TYPE,
+        clinetAUTH,
+        jobID,
+        INPUT_DATA: inputData,
+        RUNS,
+        SIMULATION_TYPE
+      };
 
-      client.scheduleJob({ 
-          MODEL_TYPE, clinetAUTH, jobID, inputData, RUNS, SIMULATION_TYPE
-        }, (err, response) => {
+      const callArgs = GRPC_AUTH_TOKEN ? [request, metadata, (err, response) => {
+        if (err) return reject(err);
+        resolve(response);
+      }] : [request, (err, response) => {
+        if (err) return reject(err);
+        resolve(response);
+      }];
 
-          if (err) {
-            return reject(err);
-          }
-          resolve(response);
-        });
-
+      client.scheduleJob(...callArgs);
     });
     
     return res.status(201).json({

@@ -3,6 +3,29 @@ const { v4: uuid } = require('uuid')
 const bcrypt = require("bcrypt");
 const clientModel = require("../../config/model/client");
 const jwt = require("jsonwebtoken");
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
+const crypto = require('crypto');
+
+// const PROTO_PATH = path.join(__dirname, '..','controlPlane','apiGateway','controlpanel.proto');
+// const packageDefinition = protoLoader.loadSync(
+//     PROTO_PATH,
+//     {keepCase: true,
+//      longs: String,
+//      enums: String,
+//      defaults: true,
+//      oneofs: true
+//     });
+// const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).controlpanel;
+// const controlPanellServerAddr = process.env.CONTROLL_PANEL_SERVER_ADDRESS;
+
+// const GRPC_TLS_ENABLED = process.env.GRPC_TLS_ENABLED === 'true';
+// const GRPC_ROOT_CERT = process.env.GRPC_ROOT_CERT || path.resolve(__dirname, '../../certs/ca.crt');
+// const GRPC_AUTH_TOKEN = process.env.GRPC_AUTH_TOKEN || process.env.CONTROL_PANEL_API_TOKEN || '';
+// const clientCredentials = GRPC_TLS_ENABLED
+//   ? grpc.credentials.createSsl(fs.readFileSync(GRPC_ROOT_CERT))
+//   : grpc.credentials.createInsecure();
+// const controlPanellClient = new protoDescriptor.Controlpanel(controlPanellServerAddr, clientCredentials);
 
 const login = async (req, res) => {
     const { EMAIL, PASSWORD } = req.body;
@@ -32,11 +55,14 @@ const login = async (req, res) => {
                 "Data": "Invalid user email"
             });
         };
+
+        console.log("User: ", UserDetails);
         
         const pwd = UserDetails.passwordHashed;
         const hashedPwd = await bcrypt.compare(pwd, PASSWORD);
+        // console.log("hashedPwd: ", hashedPwd)
 
-        if(!hashedPwd) return res.json({
+        if(hashedPwd === "false") return res.json({
             "StatusCode": 400,
             "Message": "failed",
             "Data": "Invalid user password"
@@ -155,6 +181,8 @@ const signUp = async (req, res) => {
     try {
         console.log("got to step 3")
         
+        const token = crypto.randomBytes(10).toString("hex");
+        
         const newUserSignUp = await clientModel.create({
         //   'id': uuid(),
           'createdAt': Date.now(),
@@ -164,23 +192,24 @@ const signUp = async (req, res) => {
           'email': _email,
           'phoneNumber': _phoneNumber,
           'passwordHashed': hashedPwd,
+          'token': token,
           'isActive': true
         });
 
         console.log("got to step 6");
+        // console.log("New client details: ", newUserSignUp);
 
         await newUserSignUp.save();
 
         delete req.body.EMAIL;
         delete req.body.PHONE;
         delete req.body.PASSWORD;
-        delete req.body.BUSINESS_NAME;
         delete req.body.FIRST_NAME;
         delete req.body.LAST_NAME;
         
         return res.json({
             "StatusCode": 200,
-            "Message": "success"
+            "Message": newUserSignUp
         });
 
     } catch (e) {
@@ -199,7 +228,7 @@ const signUp = async (req, res) => {
             }
         });
     };
-};
+    };
 
 module.exports = {
   login,

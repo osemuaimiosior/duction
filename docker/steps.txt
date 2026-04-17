@@ -1,0 +1,9 @@
+docker build -t duction . && docker tag duction osemu/duction && docker push osemu/duction
+
+docker pull osemu/duction && docker run -p 4000:3000 osemu/duction
+
+//Run in backgroud
+docker pull osemu/duction && docker run -d -p 4000:3000 --name duction_app osemu/duction
+
+//View logs
+docker logs duction_app

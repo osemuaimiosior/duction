@@ -8,9 +8,8 @@ RUN apk add --no-cache \
     pciutils \
     curl \
     ca-certificates \
-    opencl-headers \
-    ocl-icd-opencl-dev \
-    clinfo \
+    opencl-dev \
+    opencl-icd-loader \
     build-base \
     python3 \
     make \
@@ -29,7 +28,7 @@ RUN npm install --production
 COPY . .
 
 # Optional check for OpenCL
-RUN clinfo || true
+RUN if command -v clinfo >/dev/null 2>&1; then clinfo; else echo "clinfo not installed"; fi
 
 # Start worker node
 CMD ["node", "image/nodeDetails.js"]

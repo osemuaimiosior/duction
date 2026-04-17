@@ -4,7 +4,7 @@ package controlpanel;
 
 service Controlpanel {
 
-    rpc scheduleJob(JobData) returns (StatusMessage) {}      
+    rpc scheduleJob(JobData) returns (StatusMessage) {}
 }
 
 message JobData {

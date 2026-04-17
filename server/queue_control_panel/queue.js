@@ -127,6 +127,7 @@ async function heartBeatSignal (call, callback) {
     try {
 
     let nodeDetails = requestData.QUEUE_PAYLOAD;
+    // console.log(nodeDetails)
     const NODEID = requestData.NODE_ID;
 
     if (typeof nodeDetails === "string") {

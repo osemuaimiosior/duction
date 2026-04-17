@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const fs = require('fs');
 const path = require("path");
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
@@ -8,6 +9,7 @@ const { Queue, Worker} = require('bullmq');
 const queueConnection = require('../../config/db/queue');
 const { Op } = require("sequelize");
 const nodeState = require("../../config/model/nodeHeartBeat");
+const clientModel = require("../../config/model/client");
 const nodeJobChunk = require("../../config/model/jobChunk");
 
 const jobQueueNamesapce = process.env.JOB_QUEUE_NAME_SPACE;
@@ -94,19 +96,6 @@ async function splitRuns(totalRuns, jobId) {
   return chunks.length
   };
 
-const PROTO_PATH = path.join(__dirname, 'controlpanel.proto');
-const packageDefinition = protoLoader.loadSync(
-    PROTO_PATH,
-    {keepCase: true,
-     longs: String,
-     enums: String,
-     defaults: true,
-     oneofs: true
-    });
-const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
-// The protoDescriptor object has the full package hierarchy
-const controlpanelPackage = protoDescriptor.controlpanel;
-
 ///////////////////////////// SERVER METHODS ///////////////////////////////////////
 
 /**
@@ -116,17 +105,17 @@ const controlpanelPackage = protoDescriptor.controlpanel;
  */
 
 async function scheduleJob (call, callback) {
-
   const JobData = call.request;
-    
-    try {
 
-        const requireMinRuns = Number(process.env.MIN_RUN_SIMULATION);
-        const inputData = JSON.parse(JobData.INPUT_DATA);
-      
-        if (JobData.RUNS < requireMinRuns) {
-          throw new Error(`Minimum runs must be >= ${requireMinRuns}`);
-        }
+  try {
+    validateClientMetadata(call);
+
+    const requireMinRuns = Number(process.env.MIN_RUN_SIMULATION);
+    const inputData = JSON.parse(JobData.INPUT_DATA);
+
+    if (JobData.RUNS < requireMinRuns) {
+      throw new Error(`Minimum runs must be >= ${requireMinRuns}`);
+    }
       
         /**
          * Split runs into chunk rows
@@ -192,7 +181,7 @@ async function scheduleJob (call, callback) {
       console.error(err);
 
       callback({
-        code: grpc.status.INTERNAL,
+        code: err.code || grpc.status.INTERNAL,
         message: err.message
       });
     };
@@ -203,6 +192,18 @@ async function scheduleJob (call, callback) {
   // });
 };
 
+const PROTO_PATH = path.join(__dirname, 'controlpanel.proto');
+const packageDefinition = protoLoader.loadSync(
+    PROTO_PATH,
+    {keepCase: true,
+     longs: String,
+     enums: String,
+     defaults: true,
+     oneofs: true
+    });
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
+// The protoDescriptor object has the full package hierarchy
+const controlpanelPackage = protoDescriptor.controlpanel;
 
 // Start Controll Panel Server
 function getServer() {
@@ -213,38 +214,65 @@ function getServer() {
   return controllpanelServer;
 }
 
-// const serverCreds = grpc.ServerCredentials.createSsl(
-//   fs.readFileSync("ca.crt"), // CA cert
-//   [{
-//     cert_chain: fs.readFileSync("server.crt"),
-//     private_key: fs.readFileSync("server.key")
-//   }],
-//   false // does noot require client certificate (mTLS)
-// );
 
-const startControlPanelServer = () =>{
+const GRPC_TLS_ENABLED = process.env.GRPC_TLS_ENABLED === 'true';
+const GRPC_ROOT_CERT = process.env.GRPC_ROOT_CERT || path.resolve(__dirname, '../../certs/ca.crt');
+const GRPC_SERVER_CERT = process.env.GRPC_SERVER_CERT || path.resolve(__dirname, '../../certs/server.crt');
+const GRPC_SERVER_KEY = process.env.GRPC_SERVER_KEY || path.resolve(__dirname, '../../certs/server.key');
+const GRPC_AUTH_TOKEN = process.env.GRPC_AUTH_TOKEN || process.env.CONTROL_PANEL_API_TOKEN || '';
+
+const GRPC_CLIENT_CERT_REQUIRED = process.env.GRPC_CLIENT_CERT_REQUIRED === 'true';
+const serverCreds = (() => {
+  if (!GRPC_TLS_ENABLED) {
+    return grpc.ServerCredentials.createInsecure();
+  }
+
+  const certChain = fs.readFileSync(GRPC_SERVER_CERT);
+  const privateKey = fs.readFileSync(GRPC_SERVER_KEY);
+  const rootCert = GRPC_CLIENT_CERT_REQUIRED ? fs.readFileSync(GRPC_ROOT_CERT) : null;
+
+  return grpc.ServerCredentials.createSsl(rootCert, [
+    {
+      cert_chain: certChain,
+      private_key: privateKey
+    }
+  ], GRPC_CLIENT_CERT_REQUIRED);
+})();
+
+function validateClientMetadata(call) {
+  if (!GRPC_AUTH_TOKEN) {
+    return;
+  }
+
+  const authHeader = (call.metadata.get('authorization') || [])[0] || (call.metadata.get('x-api-key') || [])[0];
+  if (!authHeader || authHeader !== GRPC_AUTH_TOKEN) {
+    const err = new Error('Unauthenticated: invalid or missing authentication token');
+    err.code = grpc.status.UNAUTHENTICATED;
+    throw err;
+  }
+}
+
+const startControlPanelServer = () => {
   const routeServer = getServer();
   const controlPanellServerAddr = process.env.CONTROLL_PANEL_SERVER_ADDRESS;
+  const credentials = serverCreds;
 
-  routeServer.bindAsync(controlPanellServerAddr, grpc.ServerCredentials.createInsecure(), (err, port) => {
+  if (!controlPanellServerAddr) {
+    console.error('CONTROLL_PANEL_SERVER_ADDRESS is not configured. Control panel gRPC server will not start.');
+    return;
+  }
+
+  routeServer.bindAsync(controlPanellServerAddr, credentials, (err, port) => {
     if (err) {
       console.error(`Failed to bind control panel server at ${controlPanellServerAddr}:`, err);
       return;
     }
-    routeServer;
-    console.log(`Control panel gRPC server started on ${controlPanellServerAddr}`);
+
+    routeServer.start();
+    console.log(`Control panel gRPC server started on ${controlPanellServerAddr} port ${port} using ${GRPC_TLS_ENABLED ? 'TLS' : 'insecure'} credentials`);
   });
-
-  // routeServer.bindAsync(controlPanellServerAddr, serverCreds, (err, port) => {
-  //   if (err) {
-  //     console.error(`Failed to bind control panel server at ${controlPanellServerAddr}:`, err);
-  //     return;
-  //   }
-  //   routeServer;
-  //   console.log(`Control panel gRPC server started on ${controlPanellServerAddr}`);
-  // });
-
 };
+
 
 module.exports = { 
   startControlPanelServer 

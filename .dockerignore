@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+Dockerfile
+.dockerignore
+.git
+.gitignore
+*.log
+*.tgz
+build
+fabric
+fabric-samples
+image
+node_modules
+kube
+.venv
+.vscode

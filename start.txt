@@ -1,0 +1,65 @@
+Duction is a high performance distributed grid computing platform where users across different industries can access 
+high performance computing resources.
+
+Continous AI training pipeline and Inference
+Distributed container edge applications
+High performance computing CDN
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+HOW TO JOIN OUR NETWORK 
+
+(STEP 1. Account Registration)
+
+1. Visit our website at www.ween.com/api/v1/account/sign_up
+
+2. Complete our onboarding and KYC requirements
+
+3. Get your AUTH TOKEN
+
+(STEP 2. Node Registration)
+
+Before you start please install the following applications on your PC.
+
+Install docker and its requirements:
+- windows installation guide: https://docs.docker.com/desktop/setup/install/windows-install/
+- linux installation guide: https://docs.docker.com/desktop/setup/install/linux/
+
+1. Visit our website at www.ween.com/api/v1/node_registration/docker
+
+2. Copy the appropriate docker image to pull=> `docker pull osemu/nodedetails`
+
+3. export your USER_AUTH to the terminal like so
+    ` export USER_AUTH = <your USER_AUTH from your user account>
+
+3. Input the follow docker CLI in your terminal
+
+    `docker run -d \
+        --restart unless-stopped \
+        -e REGISTRY_SERVER_ADDRESS=<main application IPor domain name>:50053 \
+        -e SYSTEM_STATE_SERVER_ADDRESS=<main application IPor domain name>:50054 \
+        --name nodedetails \
+        osemu/nodedetails`
+
+4. Copy your `NODE_CODE` and `HOST_NAME` from the container terminal output
+
+<======================================= VERY IMPORTANT ============================>
+
+5. Using your `NODE_CODE` and `HOST_NAME` apply the following ENV on your local PC like so.
+        `export NODE_CODE=<your NODE_CODE>
+        export HOST_NAME=<your HOST_NAME>`
+
+<====================================== VERY IMPORTANT ======================================>
+
+6. Copy the appropriate docker image to pull=> `docker pull osemu/heartBeat`
+
+7. Input the follow docker CLI in your terminal
+
+    `docker run -d \
+        --restart unless-stopped \
+        -e REGISTRY_SERVER_ADDRESS=<main application IPor domain name>:50053 \
+        -e SYSTEM_STATE_SERVER_ADDRESS=<main application IPor domain name>:50054 \
+        --name heartBeat \
+        osemu/heartBeat`

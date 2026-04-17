@@ -4,7 +4,7 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const { runSetup } = require('./network/setup');
+// const { runSetup } = require('./network/setup');
 const {resultAggregatorQueueWorker} = require("./controllers/controlPlane/resultAggregator/mcAggregator")
 const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
@@ -72,6 +72,28 @@ async function startServer() {
       console.log("Server running on port 3000");
     });
 
+    //Start controll panel server
+    startControlPanelServer();
+    console.log("Started startControlPanelServer");
+
+    //Starts queue grpc server
+    startQueueServer();
+    console.log("Started startQueueServer");
+
+    //Starts registry grpc server
+    startRegistryServer();
+    console.log("Started startRegistryServer");
+
+    //Starts node monitoring grpc server
+    startMonitoringServer();
+    console.log("Started startMonitoringServer");
+
+    // Start heart beat worker queue engine:
+    heartBeatWorkerQueue();
+    console.log("Started heartBeatWorkerQueue");
+    resultAggregatorQueueWorker();
+    console.log("Started resultAggregatorQueueWorker");
+
   } catch (err) {
     console.error("DB connection failed:", err);
   }
@@ -86,20 +108,7 @@ startServer();
 
 ////<======================= System Configuration startup ======>>////
 
-//Start controll panel server
-startControlPanelServer();
-
-//Starts queue grpc server
-startQueueServer();
-
-//Starts registry grpc server
-startRegistryServer();
-
-//Starts node monitoring grpc server
-startMonitoringServer();
-
-// Start heart beat worker queue engine:
-heartBeatWorkerQueue();
-resultAggregatorQueueWorker();
 
 
+
+// 7082987537 opay segun sammuel 12500

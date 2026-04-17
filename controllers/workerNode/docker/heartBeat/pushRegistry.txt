@@ -24,3 +24,5 @@ step 6. Run the compute node
     --gpus all \
     --name nodeHeartBeat \
     yourdockerhub/nodeHeartBeat
+
+    docker build -t duction_node_heartbeat . && docker tag duction_node_heartbeat osemu/duction_node_heartbeat && docker push osemu/duction_node_heartbeat

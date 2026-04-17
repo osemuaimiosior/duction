@@ -1,49 +1,18 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db/postgresCloud');
 
-  const Client = sequelize.define("Client", {
+  const ClientAuth = sequelize.define("ClientAuth", {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-
-    fullName: {
+    auth: {
       type: DataTypes.STRING,
       allowNull: false
     },
 
-    regNodes: {
-      type: DataTypes.JSONB,
-      allowNull: true
-    },
-
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-
-    phoneNumber: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-
-    accessToken: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    token: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    passwordHashed: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-
-    revokedAt: {
+    nodeID: {
       type: DataTypes.DATE,
       allowNull: true
     },
@@ -72,4 +41,4 @@ const sequelize = require('../db/postgresCloud');
     timestamps: true
   });
 
-  module.exports = Client;
+  module.exports = ClientAuth;
