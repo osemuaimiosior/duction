@@ -8,6 +8,7 @@ const path = require('path');
 const {resultAggregatorQueueWorker} = require("./controllers/controlPlane/resultAggregator/mcAggregator")
 const v1Router = require('./router/v1');
 const timeout = require('connect-timeout');
+const cors = require('cors');
 // const db = require("./config/model");
 const nodeState = require("./config/model/nodeHeartBeat");
 const sequelize = require('./config/db/postgresCloud');
@@ -27,6 +28,8 @@ console.log(`- PORT: ${process.env.PORT}`);
 console.log(`- POSTGRES_URL present: ${!!process.env.POSTGRES_URL}`);
 
 const PORT = process.env.PORT || 5600;
+
+app.use(cors());
 
 // set timeout of 15s for all routes
 app.use(timeout('60s'));

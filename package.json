@@ -27,6 +27,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^5.71.0",
     "connect-timeout": "^1.9.1",
+    "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
