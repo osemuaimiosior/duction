@@ -33,6 +33,11 @@ const sequelize = require('../db/postgresCloud');
       allowNull: true
     },
 
+    refreshToken: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
     token: {
       type: DataTypes.STRING,
       allowNull: true

@@ -1,3 +1,6 @@
+//get token
+openssl rand -base64 64
+
 #Clean up and start all over again
 
 docker rm -f $(docker ps -aq) 2>/dev/null

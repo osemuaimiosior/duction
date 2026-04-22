@@ -80,10 +80,14 @@ const verifyJWT = (req, res, next) => {
     process.env.ACCESS_TOKEN_SECRET, 
     (err, decoded) => {
     if (err) {
+      // return res.status(403).json({
+      //   StatusCode: 403,
+      //   Message: "failed",
+      //   Data: { error: "JWT expired or invalid" }
+      // });
+
       return res.status(403).json({
-        StatusCode: 403,
-        Message: "failed",
-        Data: { error: "JWT expired or invalid" }
+        error: "TOKEN_EXPIRED"
       });
     }
 
@@ -92,6 +96,7 @@ const verifyJWT = (req, res, next) => {
     next();
   });
 };
+
 
 module.exports = {
     verifyJWT

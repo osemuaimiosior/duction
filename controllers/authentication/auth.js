@@ -10,124 +10,6 @@ const crypto = require('crypto');
 const { generateClientToken } = require("../auth");
 const { convertProcessSignalToExitCode } = require("util");
 
-// const PROTO_PATH = path.join(__dirname, '..','controlPlane','apiGateway','controlpanel.proto');
-// const packageDefinition = protoLoader.loadSync(
-//     PROTO_PATH,
-//     {keepCase: true,
-//      longs: String,
-//      enums: String,
-//      defaults: true,
-//      oneofs: true
-//     });
-// const protoDescriptor = grpc.loadPackageDefinition(packageDefinition).controlpanel;
-// const controlPanellServerAddr = process.env.CONTROLL_PANEL_SERVER_ADDRESS;
-
-// const GRPC_TLS_ENABLED = process.env.GRPC_TLS_ENABLED === 'true';
-// const GRPC_ROOT_CERT = process.env.GRPC_ROOT_CERT || path.resolve(__dirname, '../../certs/ca.crt');
-// const GRPC_AUTH_TOKEN = process.env.GRPC_AUTH_TOKEN || process.env.CONTROL_PANEL_API_TOKEN || '';
-// const clientCredentials = GRPC_TLS_ENABLED
-//   ? grpc.credentials.createSsl(fs.readFileSync(GRPC_ROOT_CERT))
-//   : grpc.credentials.createInsecure();
-// const controlPanellClient = new protoDescriptor.Controlpanel(controlPanellServerAddr, clientCredentials);
-
-// const login = async (req, res) => {
-//     const { EMAIL, PASSWORD } = req.body;
-//     // console.log(EMAIL);
-//     // console.log(PASSWORD);
-
-
-//     if (!EMAIL || !PASSWORD) return res.json({
-//         "StatusCode": 404,
-//         "Message": "failed",
-//         "Data": { 
-//             "Message": "Incorrect email and/or password"
-//         }
-//     });
-
-//     try {
-//         // console.log("got to step 3");
-
-//         const UserDetails = await clientModel.findOne({
-//             where: { email: EMAIL }
-//         });
-
-//         if(!UserDetails) {
-//             return res.json({
-//                 "StatusCode": 400,
-//                 "Message": "failed",
-//                 "Data": "Invalid user email"
-//             });
-//         };
-
-//         // console.log("User: ", UserDetails);
-        
-//         const pwd = UserDetails.passwordHashed;
-//         const hashedPwd = await bcrypt.compare(PASSWORD, pwd);
-//         // console.log("hashedPwd: ", hashedPwd)
-
-//         if(!hashedPwd) return res.json({
-//             "StatusCode": 400,
-//             "Message": "failed",
-//             "Data": "Invalid user password"
-//         });
-
-//         const newAccessToken = jwt.sign( 
-//             { Name: UserDetails.id}, 
-//             process.env.ACCESS_TOKEN_SECRET,
-//             { expiresIn: '30m' } //30mins
-//         );
-
-//         UserDetails.set({
-//             accessToken: newAccessToken,
-//         });
-
-//         await UserDetails.save()
-//         // console.log(UserDetails);
-
-//         const userNodes = UserDetails.regNodes || [];
-
-//         let nodeDetails = [];
-//         if(userNodes.length > 0) {
-//             for(let node of userNodes){
-//                 const nodeInfo = await nodeState.findOne({
-//                     where: { nodeId: node }
-//                 });
-
-//                 if(nodeInfo) {
-//                     nodeDetails.push(nodeInfo);
-//                 }
-//             }
-//         }
-
-//         delete req.body.EMAIL;
-//         delete req.body.PASSWORD;
-
-//         return res.json({
-//             "StatusCode": 200,
-//             "Message": "success",
-//             "userData": {
-//                 id: UserDetails.id,
-//                 firstName: UserDetails.firstName,
-//                 lastName: UserDetails.lastName,
-//                 email: UserDetails.email,
-//                 phoneNumber: UserDetails.phoneNumber,
-//                 fullName: UserDetails.fullName,
-//                 token: UserDetails.token,
-//                 accessToken: UserDetails.accessToken
-//             },
-//             "nodeData": nodeDetails
-//         });
-
-//     } catch (e) {
-//         return res.json({
-//             "StatusCode": 400,
-//             "Message": "failed",
-//             "Data": e.message,
-//         });
-//     };
-//     };
-
-
 const refreshToken = async (req, res) => {
     const { EMAIL } = req.body;
     if (!EMAIL) return res.json({
@@ -210,7 +92,18 @@ const login = async (req, res) => {
       { expiresIn: "30m" }
     );
 
+    const refreshToken = jwt.sign(
+      { id: UserDetails.id },
+
+      process.env.REFRESH_TOKEN_SECRET,
+
+      { expiresIn: "7d" }
+    );
+
     UserDetails.accessToken = accessToken;
+    await UserDetails.save();
+
+    UserDetails.refreshToken = refreshToken;
     await UserDetails.save();
 
     // Fetch nodes

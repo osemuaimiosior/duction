@@ -171,88 +171,161 @@ async function checkAuthClientDetails (call, callback) {
     }
 };
 
-async function registerNodeDetails (call, callback) {
+// async function registerNodeDetails (call, callback) {
     
-    const details = call.request;
+//     const details = call.request;
 
-    if (!details || !details.nodePayload || !details.userToken) {
-      console.error('Invalid registerNodeDetails request payload:', details);
-      return callback(null, {
-        message: "Invalid registerNodeDetails payload",
-        details: "400"
-      });
-    }
+//     if (!details || !details.nodePayload || !details.userToken) {
+//       console.error('Invalid registerNodeDetails request payload:', details);
+//       return callback(null, {
+//         message: "Invalid registerNodeDetails payload",
+//         details: "400"
+//       });
+//     }
 
-    try {
+//     try {
 
-    const registeredNode = await nodeState.create(details.nodePayload);
+//     const registeredNode = await nodeState.create(details.nodePayload);
     
-    // console.log(registeredNode.dataValues);
-    // console.log("registeredNode: ", registeredNode);
+//     // console.log(registeredNode.dataValues);
+//     // console.log("registeredNode: ", registeredNode);
 
-    if (registeredNode) {
-        const savedNodeDetails = await userModel.findOne({
-          where: { token: details.userToken.USER_AUTH }
-        });
+//     if (registeredNode) {
+//         const savedNodeDetails = await userModel.findOne({
+//           where: { token: details.userToken.USER_AUTH }
+//         });
 
-        if (!savedNodeDetails) {
-          return callback(null, {
-            message: "Client not found for auth token",
-            details: "404"
-          });
-        }
+//         if (!savedNodeDetails) {
+//           return callback(null, {
+//             message: "Client not found for auth token",
+//             details: "404"
+//           });
+//         }
 
-        const existingRegNodes = Array.isArray(savedNodeDetails.regNodes)
-          ? savedNodeDetails.regNodes
-          : [];
+//         const existingRegNodes = Array.isArray(savedNodeDetails.regNodes)
+//           ? savedNodeDetails.regNodes
+//           : [];
 
-        if (!existingRegNodes.includes(details.userToken.ID)) {
-          existingRegNodes.push(details.userToken.ID);
-          savedNodeDetails.regNodes = existingRegNodes;
-          await savedNodeDetails.save();
-        }
+//         if (!existingRegNodes.includes(details.userToken.ID)) {
+//           existingRegNodes.push(details.userToken.ID);
+//           savedNodeDetails.regNodes = existingRegNodes;
+//           await savedNodeDetails.save();
+//         }
 
-        return callback(null, {
-          message: "Client node details saved",
-          details: "done"
-        });
+//         return callback(null, {
+//           message: "Client node details saved",
+//           details: "done"
+//         });
 
-        // return null;
+//         // return null;
 
-    } else {
+//     } else {
 
-      return callback(null, {
-          message: "No client saved",
-          details: "404"
-        });
-      }
+//       return callback(null, {
+//           message: "No client saved",
+//           details: "404"
+//         });
+//       }
 
 
-    } catch (error) {
+//     } catch (error) {
 
-      if (error.name === "SequelizeConnectionError") {
+//       if (error.name === "SequelizeConnectionError") {
 
-        console.error("Database connection failed");
+//         console.error("Database connection failed");
 
-        return callback(null, {
-          message: "Database unavailable",
-          details: "error"
-        });
+//         return callback(null, {
+//           message: "Database unavailable",
+//           details: "error"
+//         });
 
-      } else {
-        console.error("Unexpected error:", error);
+//       } else {
+//         console.error("Unexpected error:", error);
 
-        return callback(null, {
-          message: "Internal server error",
-          details: error.message
-        });
-      }
+//         return callback(null, {
+//           message: "Internal server error",
+//           details: error.message
+//         });
+//       }
 
-    }
-};
+//     }
+// };
 
 
 // Start Controller Panel Server
+
+async function registerNodeDetails(call, callback) {
+  const details = call.request;
+
+  if (!details || !details.nodePayload || !details.userToken) {
+    return callback(null, {
+      message: "Invalid registerNodeDetails payload",
+      details: "400"
+    });
+  }
+
+  try {
+    // 1. Save node first
+    const registeredNode = await nodeState.create(details.nodePayload);
+
+    if (!registeredNode) {
+      return callback(null, {
+        message: "Node creation failed",
+        details: "500"
+      });
+    }
+
+    // 2. Find user
+    const savedNodeDetails = await userModel.findOne({
+      where: { token: details.userToken.USER_AUTH }
+    });
+
+    if (!savedNodeDetails) {
+      return callback(null, {
+        message: "Client not found for auth token",
+        details: "404"
+      });
+    }
+
+    // 3. Ensure regNodes is an array
+    let existingRegNodes = savedNodeDetails.regNodes;
+
+    if (!Array.isArray(existingRegNodes)) {
+      existingRegNodes = [];
+    }
+
+    // 4. IMPORTANT: push NODE ID (not user ID)
+    const newNodeId = registeredNode.nodeId; // or registeredNode.dataValues.nodeId
+
+    // 5. Avoid duplicates
+    if (!existingRegNodes.includes(newNodeId)) {
+      existingRegNodes.push(newNodeId);
+    }
+
+    // 6. Save back
+    savedNodeDetails.set({
+      regNodes: existingRegNodes
+    });
+
+    await savedNodeDetails.save();
+
+    console.log("savedNodeDetails: ", savedNodeDetails);
+
+    return callback(null, {
+      message: "Client node details saved",
+      details: "done"
+    });
+
+  } catch (error) {
+    console.error("Unexpected error:", error);
+
+    return callback(null, {
+      message: "Internal server error",
+      details: error.message
+    });
+  }
+}
+
 function getServer() {
   const registryServer = new grpc.Server();
   registryServer.addService(registryPackage.Registry.service, {

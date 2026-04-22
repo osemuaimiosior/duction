@@ -33,6 +33,8 @@ const getUserNodes = async (req, res) => {
       }
     });
 
+    // console.log("nodeDetails: ", nodeDetails);
+
     return res.json({
       StatusCode: 200,
       Message: "success",
