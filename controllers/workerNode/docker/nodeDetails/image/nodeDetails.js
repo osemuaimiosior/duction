@@ -279,7 +279,7 @@ async function getCPUStat ()  {
     if (!process.env.USER_AUTH || process.env.USER_AUTH === undefined) {
       console.error('Missing USER_AUTH env value in nodeDetails container .env');
       process.exit(1);
-    }
+    };
 
     const nodePayload = {
 

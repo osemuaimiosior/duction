@@ -3,7 +3,8 @@ const router = express.Router();
 const {newJob, checkNodeDetailsCreatNewQueue, checkNodeDetails} = require('../controllers/controlPlane/apiGateway/task');
 const {sendResultToQueue, heartBeatQueue} = require('../controllers/controlPlane/queueServerAPI/serverAPI');
 const {getSystemState} = require('../controllers/controlPlane/systemMonitor/index');
-const {login, logOut, signUp} = require("../controllers/authentication/auth");
+const {login, logOut, signUp, refreshToken} = require("../controllers/authentication/auth");
+const { getUserNodes } = require("../controllers/nodeController");
 const authenticateClient = require('../middleware/auth');
 const {verifyJWT} = require("../middleware/verifyJWT");
 const {loginLimiter, signUpLimiter} = require('../middleware/rateLimiter');
@@ -12,6 +13,9 @@ const {loginLimiter, signUpLimiter} = require('../middleware/rateLimiter');
 router.route('/account-login').post(loginLimiter, login);
 router.route('/account-logout').post(verifyJWT, logOut);
 router.route('/account-signup').post(signUpLimiter, signUp);
+router.route('/account-token').post(refreshToken);
+
+router.get("/get-user-nodes", verifyJWT, getUserNodes);
 
 router.route('/new-job').post(newJob);
 router.route('/job/result').post(sendResultToQueue);

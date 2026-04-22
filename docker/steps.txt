@@ -1,6 +1,7 @@
 docker build -t duction . && docker tag duction osemu/duction && docker push osemu/duction
 
-docker pull osemu/duction && docker run -p 4000:3000 osemu/duction
+docker pull osemu/duction_node_details && docker run -e USER_AUTH=8de6f16c4c2976f241cd -e QUEUE_SERVER_ADDRESS=0.0.0.0:50052 -e REGISTRY_SERVER_ADDRESS=0.0.0.0:50053 osemu/duction_node_details
+
 
 //Run in backgroud
 docker pull osemu/duction && docker run -d -p 4000:3000 --name duction_app osemu/duction

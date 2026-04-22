@@ -2,10 +2,13 @@ require("dotenv").config();
 const { v4: uuid } = require('uuid')
 const bcrypt = require("bcrypt");
 const clientModel = require("../../config/model/client");
+const nodeState = require("../../config/model/nodeHeartBeat");
 const jwt = require("jsonwebtoken");
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 const crypto = require('crypto');
+const { generateClientToken } = require("../auth");
+const { convertProcessSignalToExitCode } = require("util");
 
 // const PROTO_PATH = path.join(__dirname, '..','controlPlane','apiGateway','controlpanel.proto');
 // const packageDefinition = protoLoader.loadSync(
@@ -27,77 +30,227 @@ const crypto = require('crypto');
 //   : grpc.credentials.createInsecure();
 // const controlPanellClient = new protoDescriptor.Controlpanel(controlPanellServerAddr, clientCredentials);
 
-const login = async (req, res) => {
-    const { EMAIL, PASSWORD } = req.body;
-    console.log(EMAIL);
-    console.log(PASSWORD);
+// const login = async (req, res) => {
+//     const { EMAIL, PASSWORD } = req.body;
+//     // console.log(EMAIL);
+//     // console.log(PASSWORD);
 
 
-    if (!EMAIL || !PASSWORD) return res.json({
-        "StatusCode": 404,
+//     if (!EMAIL || !PASSWORD) return res.json({
+//         "StatusCode": 404,
+//         "Message": "failed",
+//         "Data": { 
+//             "Message": "Incorrect email and/or password"
+//         }
+//     });
+
+//     try {
+//         // console.log("got to step 3");
+
+//         const UserDetails = await clientModel.findOne({
+//             where: { email: EMAIL }
+//         });
+
+//         if(!UserDetails) {
+//             return res.json({
+//                 "StatusCode": 400,
+//                 "Message": "failed",
+//                 "Data": "Invalid user email"
+//             });
+//         };
+
+//         // console.log("User: ", UserDetails);
+        
+//         const pwd = UserDetails.passwordHashed;
+//         const hashedPwd = await bcrypt.compare(PASSWORD, pwd);
+//         // console.log("hashedPwd: ", hashedPwd)
+
+//         if(!hashedPwd) return res.json({
+//             "StatusCode": 400,
+//             "Message": "failed",
+//             "Data": "Invalid user password"
+//         });
+
+//         const newAccessToken = jwt.sign( 
+//             { Name: UserDetails.id}, 
+//             process.env.ACCESS_TOKEN_SECRET,
+//             { expiresIn: '30m' } //30mins
+//         );
+
+//         UserDetails.set({
+//             accessToken: newAccessToken,
+//         });
+
+//         await UserDetails.save()
+//         // console.log(UserDetails);
+
+//         const userNodes = UserDetails.regNodes || [];
+
+//         let nodeDetails = [];
+//         if(userNodes.length > 0) {
+//             for(let node of userNodes){
+//                 const nodeInfo = await nodeState.findOne({
+//                     where: { nodeId: node }
+//                 });
+
+//                 if(nodeInfo) {
+//                     nodeDetails.push(nodeInfo);
+//                 }
+//             }
+//         }
+
+//         delete req.body.EMAIL;
+//         delete req.body.PASSWORD;
+
+//         return res.json({
+//             "StatusCode": 200,
+//             "Message": "success",
+//             "userData": {
+//                 id: UserDetails.id,
+//                 firstName: UserDetails.firstName,
+//                 lastName: UserDetails.lastName,
+//                 email: UserDetails.email,
+//                 phoneNumber: UserDetails.phoneNumber,
+//                 fullName: UserDetails.fullName,
+//                 token: UserDetails.token,
+//                 accessToken: UserDetails.accessToken
+//             },
+//             "nodeData": nodeDetails
+//         });
+
+//     } catch (e) {
+//         return res.json({
+//             "StatusCode": 400,
+//             "Message": "failed",
+//             "Data": e.message,
+//         });
+//     };
+//     };
+
+
+const refreshToken = async (req, res) => {
+    const { EMAIL } = req.body;
+    if (!EMAIL) return res.json({
+        "StatusCode": 400,
         "Message": "failed",
-        "Data": { 
-            "Message": "Incorrect email and/or password"
-        }
+        "Data": "Email is required"
     });
 
     try {
-        console.log("got to step 3");
-
-        const UserDetails = await clientModel.findOne({
-            where: { email: EMAIL }
-        });
-
-        if(!UserDetails) {
+        const UserDetails = await clientModel.findOne({ where: { email: EMAIL } });
+        if (!UserDetails) {
             return res.json({
-                "StatusCode": 200,
-                "Message": "sucess",
+                "StatusCode": 400,
+                "Message": "failed",
                 "Data": "Invalid user email"
             });
-        };
+        }
 
-        console.log("User: ", UserDetails);
-        
-        const pwd = UserDetails.passwordHashed;
-        const hashedPwd = await bcrypt.compare(pwd, PASSWORD);
-        // console.log("hashedPwd: ", hashedPwd)
-
-        if(hashedPwd === "false") return res.json({
-            "StatusCode": 400,
-            "Message": "failed",
-            "Data": "Invalid user password"
-        });
-
-        const newAccessToken = jwt.sign( 
-            { Name: UserDetails.email}, 
-            process.env.ACCESS_TOKEN_SECRET,
-            { expiresIn: '30m' } //30mins
-        );
-
-        UserDetails.set({
-            accessToken: newAccessToken,
-        });
-
-        await UserDetails.save()
-        console.log(UserDetails);
-
-        delete req.body.EMAIL;
-        delete req.body.PASSWORD;
-
+        const tokenData = await generateClientToken();
+        UserDetails.set({ token: tokenData.rawToken });
+        await UserDetails.save();
 
         return res.json({
             "StatusCode": 200,
             "Message": "success",
+            "Data": {
+                token: tokenData.rawToken
+            }
         });
-
     } catch (e) {
         return res.json({
             "StatusCode": 400,
             "Message": "failed",
             "Data": e.message,
         });
-    };
-    };
+    }
+};
+
+const login = async (req, res) => {
+  const { EMAIL, PASSWORD } = req.body;
+
+  if (!EMAIL || !PASSWORD) {
+    return res.status(400).json({
+      StatusCode: 400,
+      Message: "failed",
+      Data: { Message: "Incorrect email and/or password" }
+    });
+  }
+
+  try {
+    const UserDetails = await clientModel.findOne({
+      where: { email: EMAIL }
+    });
+
+    if (!UserDetails) {
+      return res.status(400).json({
+        StatusCode: 400,
+        Message: "failed",
+        Data: "Invalid user email"
+      });
+    }
+
+    const isMatch = await bcrypt.compare(PASSWORD, UserDetails.passwordHashed);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        StatusCode: 400,
+        Message: "failed",
+        Data: "Invalid user password"
+      });
+    }
+
+    // ✅ FIXED PAYLOAD
+    const accessToken = jwt.sign(
+      {
+        id: UserDetails.id,
+        email: UserDetails.email
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "30m" }
+    );
+
+    UserDetails.accessToken = accessToken;
+    await UserDetails.save();
+
+    // Fetch nodes
+    const userNodes = UserDetails.regNodes || [];
+    let nodeDetails = [];
+
+    if (userNodes.length > 0) {
+      for (const node of userNodes) {
+        const nodeInfo = await nodeState.findOne({
+          where: { nodeId: node }
+        });
+
+        if (nodeInfo) nodeDetails.push(nodeInfo);
+      }
+    }
+
+    return res.json({
+      StatusCode: 200,
+      Message: "success",
+      userData: {
+        id: UserDetails.id,
+        firstName: UserDetails.firstName,
+        lastName: UserDetails.lastName,
+        email: UserDetails.email,
+        phoneNumber: UserDetails.phoneNumber,
+        fullName: UserDetails.fullName,
+        token: UserDetails.token,
+        accessToken // ✅ only this
+      },
+      nodeData: nodeDetails
+    });
+
+  } catch (e) {
+    return res.status(500).json({
+      StatusCode: 500,
+      Message: "failed",
+      Data: e.message,
+    });
+  }
+};
 
 const logOut = async (req, res) => {
     //const cookies = req.headers.cookie;
@@ -181,18 +334,21 @@ const signUp = async (req, res) => {
     try {
         console.log("got to step 3")
         
-        const token = crypto.randomBytes(10).toString("hex");
+        // const token = crypto.randomBytes(10).toString("hex");
+        const token = await generateClientToken();
         
         const newUserSignUp = await clientModel.create({
         //   'id': uuid(),
-          'createdAt': Date.now(),
-          'lastLoginAt': Date.now(),
-          'updatedAt': Date.now(),
+          'createdAt': new Date(),
+          'lastLoginAt': new Date(),
+          'updatedAt': new Date(),
           'fullName': _fullName,
           'email': _email,
           'phoneNumber': _phoneNumber,
           'passwordHashed': hashedPwd,
-          'token': token,
+          'token': token.rawToken,
+          'tokenPublicId': token.publicId,
+          'tokenSecretHash': token.secretHash,
           'isActive': true
         });
 
@@ -220,11 +376,13 @@ const signUp = async (req, res) => {
         delete req.body.FIRST_NAME;
         delete req.body.LAST_NAME;
         
+        console.error("Signup error:", e);
+
         return res.json({
             "StatusCode": 400,
             "Message": "failed",
             "Data": { 
-                "Details": result
+                "Details": e instanceof Error ? e.message : e
             }
         });
     };
@@ -233,5 +391,6 @@ const signUp = async (req, res) => {
 module.exports = {
   login,
   logOut,
-  signUp
+  signUp,
+  refreshToken
 };

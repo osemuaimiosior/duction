@@ -52,53 +52,154 @@ app.use((req, res, next) => {
 // Routes
 app.use("/api/v1", v1Router);
 
-app.get("/health", (req, res) => {
-  const healthInfo = {
-    "Message": "200 Success",
-    "timestamp": new Date().toISOString(),
-  };
+// app.get("/health", (req, res) => {
+//   const healthInfo = {
+//     "Message": "200 Success",
+//     "timestamp": new Date().toISOString(),
+//   };
   
-  console.log("HEALTH ENDPOINT ACCESSED!");  
-  res.status(200).json(healthInfo);
-});
+//   console.log("HEALTH ENDPOINT ACCESSED!");  
+//   res.status(200).json(healthInfo);
+// });
 
-async function startServer() {
+app.get("/health", async (req, res) => {
   try {
     await sequelize.authenticate();
-    console.log("PostgreSQL connected");
 
-     await sequelize.sync({ alter: true }); //dev mode
-    //  await db.sequelize.sync({ alter: true }); //prod mode
+    res.status(200).json({
+      status: "UP",
+      db: "CONNECTED",
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    res.status(503).json({
+      status: "DOWN",
+      db: "DISCONNECTED",
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// async function startServer() {
+//   try {
+//     await sequelize.authenticate();
+//     console.log("PostgreSQL connected");
+
+//      await sequelize.sync({ alter: true }); //dev mode
+//     //  await db.sequelize.sync({ alter: true }); //prod mode
+//     console.log("Models synchronized");
+
+//     app.listen(3000, () => {
+//       console.log("Server running on port 3000");
+//     });
+
+//     //Start controll panel server
+//     startControlPanelServer();
+//     console.log("Started startControlPanelServer");
+
+//     //Starts queue grpc server
+//     startQueueServer();
+//     console.log("Started startQueueServer");
+
+//     //Starts registry grpc server
+//     startRegistryServer();
+//     console.log("Started startRegistryServer");
+
+//     //Starts node monitoring grpc server
+//     startMonitoringServer();
+//     console.log("Started startMonitoringServer");
+
+//     // Start heart beat worker queue engine:
+//     heartBeatWorkerQueue();
+//     console.log("Started heartBeatWorkerQueue");
+//     resultAggregatorQueueWorker();
+//     console.log("Started resultAggregatorQueueWorker");
+
+//   } catch (err) {
+//     console.error("DB connection failed:", err);
+//   }
+// }
+// const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+const isRetryableError = (err) => {
+  const code = err?.original?.code;
+
+  return (
+    code === "EAI_AGAIN" ||     // DNS issue (your current error)
+    code === "ECONNREFUSED" ||
+    code === "ETIMEDOUT" ||
+    code === "ENOTFOUND"
+  );
+};
+
+const connectDBWithRetry = async (retries = 10, baseDelay = 2000) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`DB connection attempt ${attempt}...`);
+
+      await sequelize.authenticate();
+      console.log("PostgreSQL connected");
+
+      return; // success → exit loop
+    } catch (err) {
+      console.error(`DB connection failed (attempt ${attempt})`);
+
+      if (!isRetryableError(err)) {
+        console.error("🚫 Non-retryable DB error:", err.message);
+        throw err; // don't retry bad config/credentials
+      }
+
+      if (attempt === retries) {
+        console.error("💥 Max retries reached. Giving up.");
+        throw err;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`⏳ Retrying in ${delay / 1000}s...`);
+
+      await sleep(delay);
+    }
+  }
+};
+async function startServer() {
+  try {
+    // 🔥 resilient connection
+    await connectDBWithRetry();
+
+    // Sync models ONLY after DB is stable
+    await sequelize.sync({ alter: true }); // dev mode
     console.log("Models synchronized");
 
     app.listen(3000, () => {
       console.log("Server running on port 3000");
     });
 
-    //Start controll panel server
+    // Start services AFTER DB is ready
     startControlPanelServer();
     console.log("Started startControlPanelServer");
 
-    //Starts queue grpc server
     startQueueServer();
     console.log("Started startQueueServer");
 
-    //Starts registry grpc server
     startRegistryServer();
     console.log("Started startRegistryServer");
 
-    //Starts node monitoring grpc server
     startMonitoringServer();
     console.log("Started startMonitoringServer");
 
-    // Start heart beat worker queue engine:
     heartBeatWorkerQueue();
     console.log("Started heartBeatWorkerQueue");
+
     resultAggregatorQueueWorker();
     console.log("Started resultAggregatorQueueWorker");
 
   } catch (err) {
-    console.error("DB connection failed:", err);
+    console.error("💥 Fatal startup error:", err);
+
+    // important for production (Docker/PM2/K8s will restart)
+    process.exit(1);
   }
 }
 

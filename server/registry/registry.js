@@ -121,6 +121,28 @@ async function checkAuthClientDetails (call, callback) {
         });
       }
 
+      // const prefix = "dc_live";
+
+      // // Public ID (short lookup identifier)
+      // const publicId = existingClientAuth.tokenPublicId; 
+      // // 8 hex chars
+
+      // // Secret (high entropy)
+      // const secretHash = existingClientAuth.tokenSecretHash;
+
+
+      // // Full token sent to client
+      // const rawToken = `${prefix}_${publicId}.${secret}`;
+
+      // if(existingClientAuth.token !==  rawToken){
+        
+      //   return callback(null, {
+      //     message: "Invalid Auth token sent",
+      //     details: "404"
+      //   });
+
+      // };
+
       return callback(null, {
         message: "Client auth details found",
         details: "done"

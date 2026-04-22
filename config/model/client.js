@@ -38,6 +38,16 @@ const sequelize = require('../db/postgresCloud');
       allowNull: true
     },
 
+    tokenPublicId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    tokenSecretHash: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
     passwordHashed: {
       type: DataTypes.STRING,
       allowNull: false
