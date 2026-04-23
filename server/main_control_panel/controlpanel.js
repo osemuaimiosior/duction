@@ -192,6 +192,31 @@ async function scheduleJob (call, callback) {
   // });
 };
 
+async function errorLogger (call, callback) {
+  const errorDetails = call.request;
+
+  try {
+   
+      
+        callback(null, {
+          message: "error logged",
+        });
+    } catch (err) {
+
+      console.error(err);
+
+      callback({
+        code: err.code || grpc.status.INTERNAL,
+        message: err.message
+      });
+    };
+
+  
+  // call.on('end', () => {
+  //   call.end();
+  // });
+};
+
 const PROTO_PATH = path.join(__dirname, 'controlpanel.proto');
 const packageDefinition = protoLoader.loadSync(
     PROTO_PATH,
@@ -209,7 +234,8 @@ const controlpanelPackage = protoDescriptor.controlpanel;
 function getServer() {
   const controllpanelServer = new grpc.Server();
   controllpanelServer.addService(controlpanelPackage.Controlpanel.service, {
-    scheduleJob
+    scheduleJob,
+    errorLogger
   });
   return controllpanelServer;
 }

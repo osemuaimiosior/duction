@@ -43,7 +43,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(ipBlocker);
 
-// Add request logging middleware
+// Add request logging middleware and add errorLogger to it
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.get('User-Agent')}`);
   next();

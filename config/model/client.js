@@ -15,7 +15,8 @@ const sequelize = require('../db/postgresCloud');
 
     regNodes: {
       type: DataTypes.JSONB,
-      allowNull: true
+      allowNull: true,
+      defaultValue: []
     },
 
     email: {

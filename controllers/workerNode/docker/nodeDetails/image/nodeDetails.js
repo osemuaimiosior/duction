@@ -352,12 +352,17 @@ async function getCPUStat ()  {
 
     });
 
-    console.log(fb);
+    // console.log(fb);
+
+    if(fb.message === "Internal server error"){
+      console.log("Internal server error")
+      exit(1)
+    };
 
     const [prefix, owner, id] = nodePayload.nodeId.split("-");
 
-    console.log("Your HOST_NAME: ", owner);  // Osemudiamhen
-    console.log("Your NODE_CODE: ", id);     // 9c389a73
+    console.log("Your HOST_NAME: ", owner);
+    console.log("Your NODE_CODE: ", id);
 
   } catch (error) {
 

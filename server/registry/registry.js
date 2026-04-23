@@ -171,88 +171,77 @@ async function checkAuthClientDetails (call, callback) {
     }
 };
 
-// async function registerNodeDetails (call, callback) {
-    
-//     const details = call.request;
+// async function registerNodeDetails(call, callback) {
+//   const details = call.request;
 
-//     if (!details || !details.nodePayload || !details.userToken) {
-//       console.error('Invalid registerNodeDetails request payload:', details);
+//   if (!details || !details.nodePayload || !details.userToken) {
+//     return callback(null, {
+//       message: "Invalid registerNodeDetails payload",
+//       details: "400"
+//     });
+//   }
+
+//   try {
+//     // 1. Save node
+//     const registeredNode = await nodeState.create(details.nodePayload);
+
+//     if (!registeredNode) {
 //       return callback(null, {
-//         message: "Invalid registerNodeDetails payload",
-//         details: "400"
+//         message: "Node creation failed",
+//         details: "500"
 //       });
 //     }
 
-//     try {
+//     // 2. Find user
+//     const nodeUserDetails = await userModel.findOne({
+//       where: { token: details.userToken.USER_AUTH }
+//     });
 
-//     const registeredNode = await nodeState.create(details.nodePayload);
-    
-//     // console.log(registeredNode.dataValues);
-//     // console.log("registeredNode: ", registeredNode);
-
-//     if (registeredNode) {
-//         const savedNodeDetails = await userModel.findOne({
-//           where: { token: details.userToken.USER_AUTH }
-//         });
-
-//         if (!savedNodeDetails) {
-//           return callback(null, {
-//             message: "Client not found for auth token",
-//             details: "404"
-//           });
-//         }
-
-//         const existingRegNodes = Array.isArray(savedNodeDetails.regNodes)
-//           ? savedNodeDetails.regNodes
-//           : [];
-
-//         if (!existingRegNodes.includes(details.userToken.ID)) {
-//           existingRegNodes.push(details.userToken.ID);
-//           savedNodeDetails.regNodes = existingRegNodes;
-//           await savedNodeDetails.save();
-//         }
-
-//         return callback(null, {
-//           message: "Client node details saved",
-//           details: "done"
-//         });
-
-//         // return null;
-
-//     } else {
-
+//     if (!nodeUserDetails) {
 //       return callback(null, {
-//           message: "No client saved",
-//           details: "404"
-//         });
-//       }
-
-
-//     } catch (error) {
-
-//       if (error.name === "SequelizeConnectionError") {
-
-//         console.error("Database connection failed");
-
-//         return callback(null, {
-//           message: "Database unavailable",
-//           details: "error"
-//         });
-
-//       } else {
-//         console.error("Unexpected error:", error);
-
-//         return callback(null, {
-//           message: "Internal server error",
-//           details: error.message
-//         });
-//       }
-
+//         message: "Client not found",
+//         details: "404"
+//       });
 //     }
-// };
 
+//     console.log("nodeUserDetails Initial: ", nodeUserDetails)
 
-// Start Controller Panel Server
+//     // ✅ correct node id
+//     const newNodeId = details.userToken.ID;
+
+//     console.log("newNodeId Initial: ", newNodeId)
+
+//     // 3. Ensure array
+//     let existingRegNodes = nodeUserDetails.regNodes;
+
+//     // if (!Array.isArray(existingRegNodes)) {
+//     //   existingRegNodes = [];
+//     // }
+
+//     // 4. Add safely
+//     if (!existingRegNodes.includes(newNodeId)) {
+//       existingRegNodes.push(newNodeId);
+
+//     nodeUserDetails.regNodes = existingRegNodes;
+
+//     await nodeUserDetails.save();
+//     // console.log("nodeUserDetails Updated: ", nodeUserDetails)
+//     }
+
+//     return callback(null, {
+//       message: "Client node details saved",
+//       details: "done"
+//     });
+
+//   } catch (error) {
+//     console.error("Unexpected error:", error);
+
+//     return callback(null, {
+//       message: "Internal server error",
+//       details: error.message
+//     });
+//   }
+// }
 
 async function registerNodeDetails(call, callback) {
   const details = call.request;
@@ -265,7 +254,7 @@ async function registerNodeDetails(call, callback) {
   }
 
   try {
-    // 1. Save node first
+    // 1. Save node
     const registeredNode = await nodeState.create(details.nodePayload);
 
     if (!registeredNode) {
@@ -276,40 +265,42 @@ async function registerNodeDetails(call, callback) {
     }
 
     // 2. Find user
-    const savedNodeDetails = await userModel.findOne({
+    const nodeUserDetails = await userModel.findOne({
       where: { token: details.userToken.USER_AUTH }
     });
 
-    if (!savedNodeDetails) {
+    if (!nodeUserDetails) {
       return callback(null, {
-        message: "Client not found for auth token",
+        message: "Client not found",
         details: "404"
       });
     }
 
-    // 3. Ensure regNodes is an array
-    let existingRegNodes = savedNodeDetails.regNodes;
+    // ✅ use actual nodeId from DB
+    const newNodeId = registeredNode.nodeId;
+
+    console.log("Saving nodeId:", newNodeId);
+
+    // 3. Normalize + clone
+    let existingRegNodes = nodeUserDetails.regNodes;
 
     if (!Array.isArray(existingRegNodes)) {
       existingRegNodes = [];
+    } else {
+      existingRegNodes = [...existingRegNodes];
     }
 
-    // 4. IMPORTANT: push NODE ID (not user ID)
-    const newNodeId = registeredNode.nodeId; // or registeredNode.dataValues.nodeId
-
-    // 5. Avoid duplicates
+    // 4. Avoid duplicates
     if (!existingRegNodes.includes(newNodeId)) {
       existingRegNodes.push(newNodeId);
+
+      // 🔥 MUST reassign
+      nodeUserDetails.regNodes = existingRegNodes;
+
+      await nodeUserDetails.save();
+
+      console.log("Updated regNodes:", nodeUserDetails.regNodes);
     }
-
-    // 6. Save back
-    savedNodeDetails.set({
-      regNodes: existingRegNodes
-    });
-
-    await savedNodeDetails.save();
-
-    console.log("savedNodeDetails: ", savedNodeDetails);
 
     return callback(null, {
       message: "Client node details saved",
